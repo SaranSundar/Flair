@@ -13,7 +13,7 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/../Flair/.gitignore">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="84">
+            <state relative-caret-position="124">
               <caret line="4" column="6" selection-start-line="4" selection-start-column="6" selection-end-line="4" selection-end-column="6" />
             </state>
           </provider>
@@ -388,12 +388,12 @@
       <workItem from="1562277354860" duration="4790000" />
       <workItem from="1562335428698" duration="1859000" />
       <workItem from="1562339539841" duration="2052000" />
-      <workItem from="1562525189716" duration="4341000" />
+      <workItem from="1562525189716" duration="4368000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="23442000" />
+    <option name="totallyTimeSpent" value="23469000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1680" height="1050" extended-state="6" />
@@ -548,7 +548,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/../Flair/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="84">
+        <state relative-caret-position="124">
           <caret line="4" column="6" selection-start-line="4" selection-start-column="6" selection-end-line="4" selection-end-column="6" />
         </state>
       </provider>
