@@ -56,6 +56,7 @@ def create_executables(path, python_name, react_name, app_name):
         "pipenv --three",
         "pipenv install Flask",
         "pipenv install pywebview",
+        "pipenv install py2app",
         "chmod +x create_executables.sh",
     ]
     cmdline("\n".join(cmds))
@@ -88,7 +89,7 @@ def main():
     elif argl > 5:
         print("Too many arguments")
     path = sys.argv[1]  # "~/Documents/PythonProjects"
-    python_name = sys.argv[2]  # "React+Flask"
+    python_name = sys.argv[2]  #~/Documents/PythonProjects
     if argl > 3:
         react_name = sys.argv[3]
     else:
