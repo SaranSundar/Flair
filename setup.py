@@ -3,10 +3,11 @@ from sys import platform as _platform
 import os
 
 here = os.path.abspath(os.path.dirname(__file__))
-NAME = 'flair'
 REQUIRES_PYTHON = '>=3.0.0'
 REQUIRED_DEP = ['flask', 'pywebview']
 about = {}
+
+NAME = 'React+Flask'
 
 with open('README.md') as readme_file:
     readme = readme_file.read()
@@ -20,7 +21,7 @@ elif _platform == "darwin":
     # MAC OS X
     SET_REQUIRES.append('py2app')
 
-APP = [NAME + '.py']
+APP = ['flair.py']
 
 OPTIONS = {
     'argv_emulation': False,
