@@ -74,6 +74,8 @@ def create_project(path, python_name, react_name, app_name):
         "npx create-react-app " + react_name,
         "cp -r " + cwd + "/*" + " " + os.path.join(path, python_name) + "/",
         "rm -rf project-flair.py dist build static templates",
+        "rm -rf " + os.path.join(path, python_name, react_name) + "/*git*",
+        "mv " + os.path.join(path, python_name) + "/rt.py " + os.path.join(path, python_name, react_name) + "/rt.py",
     ]
 
     cmdline("\n".join(cmds))
@@ -89,7 +91,7 @@ def main():
     elif argl > 5:
         print("Too many arguments")
     path = sys.argv[1]  # "~/Documents/PythonProjects"
-    python_name = sys.argv[2]  #~/Documents/PythonProjects
+    python_name = sys.argv[2]  # ~/Documents/PythonProjects
     if argl > 3:
         react_name = sys.argv[3]
     else:
