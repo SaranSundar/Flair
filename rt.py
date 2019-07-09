@@ -7,7 +7,8 @@ def create_react_component_class(component_name):
     template = [
         "import React, {Component} from 'react';",
         "import './$component_name.css';",
-        "\nclass $component_name extends Component {",
+        "",
+        "class $component_name extends Component {",
         "    constructor(props) {",
         "        super(props);",
         "    }",
@@ -19,6 +20,7 @@ def create_react_component_class(component_name):
         "        );",
         "    }",
         "}",
+        "",
         "export default $component_name;"
     ]
     css_class = """.$component_name {\n}"""
@@ -32,13 +34,15 @@ def create_react_component_function(component_name):
     template = [
         "import React from 'react';",
         "import './$component_name.css';",
-        "\nfunction $component_name() {",
+        "",
+        "function $component_name() {",
         "    return (",
         '        <div className="$component_name">',
         "        </div>",
         "    );",
         "}",
-        "\nexport default $component_name;"
+        "",
+        "export default $component_name;"
     ]
     css_class = """.$component_name {\n}"""
     template = "\n".join(template)
