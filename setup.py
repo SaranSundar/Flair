@@ -7,7 +7,7 @@ REQUIRES_PYTHON = '>=3.0.0'
 REQUIRED_DEP = ['flask', 'pywebview']
 about = {}
 
-NAME = 'React+Flask'
+NAME = 'Flair'
 
 with open('README.md') as readme_file:
     readme = readme_file.read()

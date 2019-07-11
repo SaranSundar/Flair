@@ -46,7 +46,7 @@ def main():
         # webbrowser.open(link, new=2)
         # while server_thread.is_alive():
         #     time.sleep(0.1)
-        webview.create_window("React + Flask App", link, min_size=(640, 480))
+        webview.create_window("Flair App", link, min_size=(640, 480))
     else:
         logger.debug("Server failed to start with a max wait time of " + str(max_wait))
         if status is not False:
