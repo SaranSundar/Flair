@@ -12,6 +12,14 @@ error = False
 status = False
 
 
+def get_user_agent(window):
+    result = window.evaluate_js(r"""
+        // Return user agent
+        'User agent:\n' + navigator.userAgent;
+        """)
+    print(result)
+
+
 def is_server_running(url, port, max_wait):
     global error
     global status
@@ -46,7 +54,8 @@ def main():
         # webbrowser.open(link, new=2)
         # while server_thread.is_alive():
         #     time.sleep(0.1)
-        webview.create_window("Flair App", link, min_size=(640, 480))
+        window = webview.create_window("Flair App", link, min_size=(640, 480))
+        webview.start(get_user_agent, window)
     else:
         logger.debug("Server failed to start with a max wait time of " + str(max_wait))
         if status is not False:

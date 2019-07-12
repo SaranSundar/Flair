@@ -1,5 +1,5 @@
-Pipfile
-build/
-dist/
-__pycache__/
-.idea/
+/Pipfile
+/build/
+/dist/
+/__pycache__/
+/.idea/
