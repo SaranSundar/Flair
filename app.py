@@ -7,12 +7,12 @@ from webview_api import webview_api
 
 if getattr(sys, 'frozen', False):
     # Logic used for packaging app with py2app
-    cwd = os.getcwd()
-    app = Flask(__name__, static_folder=str(cwd) + "/static", template_folder=str(cwd) + "/templates")
+    # cwd = os.getcwd()
+    # app = Flask(__name__, static_folder=str(cwd) + "/static", template_folder=str(cwd) + "/templates")
     # Logic used for packaging app with PyInstaller
-    # template_folder = os.path.join(sys._MEIPASS, 'templates')
-    # static_folder = os.path.join(sys._MEIPASS, 'static')
-    # app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    template_folder = os.path.join(sys._MEIPASS, 'templates')
+    static_folder = os.path.join(sys._MEIPASS, 'static')
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
 else:
     app = Flask(__name__, static_folder="static", template_folder="templates")
 
