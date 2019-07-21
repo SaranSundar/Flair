@@ -1,0 +1,8 @@
+Starting webview
+Start load window
+Creating window
+Creating window object
+Append window object to windows
+Window success creation
+Inside __init__.py start:
+Passed creat_children
