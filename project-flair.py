@@ -25,22 +25,20 @@ def cmdline(command):
 
 def create_executables(path, python_name, react_name, app_name):
     cmds = [
-        "cd " + os.path.join(path, python_name, react_name),
-        "echo 'Building React App...\n'",
+        "cd " + os.path.join(react_name),
+        "echo 'Building React App...'",
         "npm run build",
         "cd ..",
-        "echo 'Cleaning up old builds...\n'",
+        "echo 'Cleaning up old builds...'",
         "rm -rf *.app",
         "rm -rf " + app_name + "_exec",
         "rm -rf dist",
         "rm -rf templates",
         "rm -rf static",
-        "rm *.spec",
         "mkdir templates",
-        "cp -r " + os.path.join(path, python_name, react_name, "build", "index.html") + " templates/index.html",
-        "cp -r " + os.path.join(path, python_name, react_name, "build", "static") + " static",
-        "echo 'Starting pip environment...\n'",
-        'cd ' + os.path.join(path, python_name),
+        "cp -r " + os.path.join(react_name, "build", "index.html") + " templates/index.html",
+        "cp -r " + os.path.join(react_name, "build", "static") + " static",
+        "echo 'Starting pip environment...'",
         'pipenv run python setup.py py2app',
         "cp -r dist/*.app ./" + app_name + ".app",
         "rm *.spec",
@@ -72,10 +70,11 @@ def create_project(path, python_name, react_name, app_name):
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
-        "cp -r " + cwd + "/*" + " " + os.path.join(path, python_name) + "/",
+        "cp -r " + cwd + "/* ./",
         "rm -rf project-flair.py dist build static templates",
-        "rm -rf " + os.path.join(path, python_name, react_name) + "/*git*",
-        "mv " + os.path.join(path, python_name) + "/rt.py " + os.path.join(path, python_name, react_name) + "/rt.py",
+        "rm -rf " + os.path.join(react_name) + "/.git",
+        "rm -rf " + os.path.join(react_name) + "/.gitignore",
+        "mv /rt.py " + os.path.join(react_name) + "/rt.py",
     ]
 
     cmdline("\n".join(cmds))
