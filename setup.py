@@ -4,7 +4,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 REQUIRES_PYTHON = '>=3.0.0'
-REQUIRED_DEP = ['flask', 'pywebview']
+REQUIRED_DEP = ['flask', 'pywebview', 'requests']
 about = {}
 
 NAME = 'Flair'
