@@ -7,40 +7,42 @@ Licensed under BSD license
 http://github.com/r0x0r/pywebview/
 """
 
-import json
-import logging
 import os
 import sys
+import logging
+import json
 import webbrowser
-from ctypes import windll
 from threading import Event, Semaphore
+from ctypes import windll
 from uuid import uuid4
 
-import clr
-
 from webview import WebViewException, windows, OPEN_DIALOG, FOLDER_DIALOG, SAVE_DIALOG, _debug
+from webview.util import parse_api_js, interop_dll_path, parse_file_type, inject_base_uri, default_html, js_bridge_call
 from webview.js import alert
 from webview.js.css import disable_text_select
 from webview.localization import localization
-from webview.util import parse_api_js, interop_dll_path, parse_file_type, inject_base_uri, default_html, js_bridge_call
+
+import clr
 
 clr.AddReference('System.Windows.Forms')
 clr.AddReference('System.Collections')
 clr.AddReference('System.Threading')
 
 import System.Windows.Forms as WinForms
-from System import IntPtr, Int32, Func, Type
+from System import IntPtr, Int32, Func, Type, Environment, Uri
 from System.Threading import Thread, ThreadStart, ApartmentState
-from System.Drawing import Size, Icon, ColorTranslator, SizeF
+from System.Drawing import Size, Point, Icon, Color, ColorTranslator, SizeF
+
 
 logger = logging.getLogger('pywebview')
+
 
 is_cef = False
 CEF = None
 
-
 def use_cef():
     global CEF, is_cef
+    from . import cef as CEF
     is_cef = True
     logger.debug('Using WinForms / CEF')
 
@@ -59,16 +61,16 @@ def _is_edge():
         build, _ = winreg.QueryValueEx(windows_key, 'CurrentBuild')
         build = int(build)
 
-        return version >= 394802 and build >= 17134  # .NET 4.6.2 + Windows 10 1803
+        return version >= 394802 and build >= 17134 # .NET 4.6.2 + Windows 10 1803
     except Exception as e:
         logger.exception(e)
         return False
     finally:
         winreg.CloseKey(net_key)
 
-
 force_mshtml = str(os.environ.get('PYWEBVIEW_GUI')).lower() == 'mshtml'
 is_edge = _is_edge() and not force_mshtml
+
 
 # TODO: Move this out of Edge initialization code
 clr.AddReference(interop_dll_path('WebBrowserInterop.dll'))
@@ -78,10 +80,10 @@ if is_edge:
     clr.AddReference(interop_dll_path('Microsoft.Toolkit.Forms.UI.Controls.WebView.dll'))
     from Microsoft.Toolkit.Forms.UI.Controls import WebView
     from System.ComponentModel import ISupportInitialize
-
     logger.debug('Using WinForms / EdgeHTML')
 else:
     logger.debug('Using WinForms / MSHTML')
+
 
 
 class BrowserView:
@@ -184,7 +186,7 @@ class BrowserView:
         def on_document_completed(self, sender, args):
             self.web_browser.Document.InvokeScript('eval', (alert.src,))
 
-            # if _debug:
+            #if _debug:
             #    self.web_browser.Document.InvokeScript('eval', ('window.console = { log: function(msg) { window.external.console(JSON.stringify(msg)) }}'))
 
             if self.first_load:
@@ -309,12 +311,10 @@ class BrowserView:
 
             url = str(args.Uri)
             self.url = None if url.startswith('ms-local-stream:') else url
-            self.web_view.InvokeScript('eval', (
-            'window.alert = (msg) => window.external.notify(JSON.stringify(["alert", msg+""]))',))
+            self.web_view.InvokeScript('eval', ('window.alert = (msg) => window.external.notify(JSON.stringify(["alert", msg+""]))',))
 
             if _debug:
-                self.web_view.InvokeScript('eval', (
-                'window.console = { log: (msg) => window.external.notify(JSON.stringify(["console", msg+""]))}',))
+                self.web_view.InvokeScript('eval', ('window.console = { log: (msg) => window.external.notify(JSON.stringify(["console", msg+""]))}',))
 
             self.web_view.InvokeScript('eval', (parse_api_js(self.pywebview_window.js_api, 'edgehtml'),))
 
@@ -369,6 +369,7 @@ class BrowserView:
             else:
                 self.browser = BrowserView.MSHTML(self, window)
 
+
             self.Shown += self.on_shown
             self.FormClosed += self.on_close
 
@@ -422,7 +423,7 @@ class BrowserView:
 
         def load_html(self, content, base_uri):
             def _load_html():
-                self.browser.load_html(content, base_uri)
+                 self.browser.load_html(content, base_uri)
 
             self.Invoke(Func[Type](_load_html))
 
@@ -450,7 +451,7 @@ class BrowserView:
                     self.WindowState = WinForms.FormWindowState.Maximized
                     self.is_fullscreen = True
                     windll.user32.SetWindowPos(self.Handle.ToInt32(), None, screen.Bounds.X, screen.Bounds.Y,
-                                               screen.Bounds.Width, screen.Bounds.Height, 64)
+                                            screen.Bounds.Width, screen.Bounds.Height, 64)
                 else:
                     self.TopMost = False
                     self.Size = self.old_size
@@ -466,7 +467,7 @@ class BrowserView:
 
         def set_window_size(self, width, height):
             windll.user32.SetWindowPos(self.Handle.ToInt32(), None, self.Location.X, self.Location.Y,
-                                       width, height, 64)
+                width, height, 64)
 
     @staticmethod
     def alert(message):
@@ -527,8 +528,8 @@ def _set_ie_mode():
                                      0, winreg.KEY_ALL_ACCESS)
     except WindowsError:
         dpi_support = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
-                                         r"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_96DPI_PIXEL",
-                                         0, winreg.KEY_ALL_ACCESS)
+                                               r"Software\Microsoft\Internet Explorer\Main\FeatureControl\FEATURE_96DPI_PIXEL",
+                                               0, winreg.KEY_ALL_ACCESS)
 
     mode = get_ie_mode()
     executable_name = sys.executable.split("\\")[-1]
@@ -540,15 +541,37 @@ def _set_ie_mode():
 
 
 def _allow_localhost():
-    output = ""  # check_output('checknetisolation LoopbackExempt -s')
+    import subprocess
 
-    # if 'cw5n1h2txyewy' not in str(output):
-    #   windll.shell32.ShellExecuteW(None, 'runas', 'checknetisolation', 'LoopbackExempt -a -n=\"Microsoft.Win32WebViewHost_cw5n1h2txyewy\"', None, 1)
+    # lifted from https://github.com/pyinstaller/pyinstaller/wiki/Recipe-subprocess
+    def subprocess_args(include_stdout=True):
+        if hasattr(subprocess, 'STARTUPINFO'):
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            env = os.environ
+        else:
+            si = None
+            env = None
+
+        if include_stdout:
+            ret = {'stdout': subprocess.PIPE}
+        else:
+            ret = {}
+
+        ret.update({'stdin': subprocess.PIPE,
+                    'stderr': subprocess.PIPE,
+                    'startupinfo': si,
+                    'env': env })
+        return ret
+
+    output = subprocess.check_output('checknetisolation LoopbackExempt -s', **subprocess_args(False))
+
+    if 'cw5n1h2txyewy' not in str(output):
+        windll.shell32.ShellExecuteW(None, 'runas', 'checknetisolation', 'LoopbackExempt -a -n=\"Microsoft.Win32WebViewHost_cw5n1h2txyewy\"', None, 1)
 
 
 _main_window_created = Event()
 _main_window_created.clear()
-
 
 def create_window(window):
     def create():
@@ -582,7 +605,7 @@ def create_window(window):
 
     else:
         _main_window_created.wait()
-        i = list(BrowserView.instances.values())[0]  # arbitrary instance
+        i = list(BrowserView.instances.values())[0]     # arbitrary instance
         i.Invoke(Func[Type](create))
 
 
@@ -607,7 +630,7 @@ def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, fi
         if dialog_type == FOLDER_DIALOG:
             dialog = WinForms.FolderBrowserDialog()
             dialog.RestoreDirectory = True
-
+            
             if directory:
                 dialog.SelectedPath = directory
 
@@ -706,3 +729,4 @@ def evaluate_js(script, uid):
         return CEF.evaluate_js(script, uid)
     else:
         return BrowserView.instances[uid].evaluate_js(script)
+
