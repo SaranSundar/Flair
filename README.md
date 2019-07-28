@@ -12,7 +12,7 @@ FOR MAC OS X
 
   4. Clone this repo and leave it somewhere where it wont be deleted
 
-  5. To create a Flair project, cd into the downloaded folder and run python project-flair.py <Base Path of Project> <Project      Name> <Optional: ReactUIName> <Optional: App File Name>
+  5. To create a Flair project, cd into the downloaded folder and run python project-flair.py \<Base Path of Project> \<Project      Name> \<Optional: ReactUIName> \<Optional: App File Name>
 
   Ex. python project-flair.py ~/Documents/PythonProjects React+Flask react-ui Mango
 
