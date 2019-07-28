@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['flair.py'],
-             pathex=['C:\\Users\\saran\\Documents\\PythonProjects\\Flair'],
+             pathex=['C:\\Users\\matth\\Documents\\Github\\Flair'],
              binaries=[],
              datas=[('templates', 'templates'), ('static', 'static')],
              hiddenimports=[],
