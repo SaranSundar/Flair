@@ -2,8 +2,13 @@ import os
 import sys
 
 from flask import Flask, render_template
+from flask_cors import CORS
+from flask_sockets import Sockets
 
-from webview_api import webview_api
+from flair import port as flair_port
+from flask_blueprints.example_bp import example_bp
+from flask_blueprints.example_bp import example_ws
+from flask_blueprints.webview_bp import webview_bp
 
 if getattr(sys, 'frozen', False):
     # Logic used for packaging app with py2app
@@ -16,11 +21,18 @@ if getattr(sys, 'frozen', False):
 else:
     app = Flask(__name__, static_folder="static", template_folder="templates")
 
+CORS(app)
+
 # Disables caching for each flair app that uses PyWebView
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1
 
 # Registers webview API's under /webview/<api-name> to keep code separate and clean
-app.register_blueprint(webview_api, url_prefix='/webview')
+app.register_blueprint(webview_bp, url_prefix='/webview_bp')
+app.register_blueprint(example_bp, url_prefix='/example_bp')
+
+ws = Sockets(app)
+
+ws.register_blueprint(example_ws, url_prefix='/example_ws')
 
 
 @app.after_request
@@ -50,4 +62,4 @@ if __name__ == '__main__':
         without needing to package or launch Window.
         Can be useful for chrome tools debugging.
     """
-    run_app('127.0.0.1', 43948)
+    run_app('127.0.0.1', flair_port)

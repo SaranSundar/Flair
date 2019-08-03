@@ -48,7 +48,7 @@ def create_executables(path, python_name, react_name, app_name):
     sh_file = "\n".join(cmds)
     with open(os.path.join(path, python_name, "create_executables.sh"), mode='w') as f:
         f.write(sh_file)
-    print("Exectuable script written, installing pip dependencies")
+    print("Executable script written, installing pip dependencies")
     cmds = [
         "cd " + os.path.join(path, python_name),
         "pipenv --three",
@@ -72,9 +72,14 @@ def create_project(path, python_name, react_name, app_name):
         "npx create-react-app " + react_name,
         "cp -r " + cwd + "/* ./",
         "rm -rf project-flair.py dist build static templates",
-        "rm -rf " + os.path.join(react_name) + "/.git",
-        "rm -rf " + os.path.join(react_name) + "/.gitignore",
-        "mv /rt.py " + os.path.join(react_name) + "/rt.py",
+        "rm -rf " + react_name + "/.git",
+        "rm -rf " + react_name + "/.gitignore",
+        "rm -rf " + react_name + "/src",
+        "mv rt.py " + react_name + "/rt.py",
+        "cp -r src " + react_name + "/src",
+        "cd " + react_name,
+        "npm install react-router-dom",
+        "npm install --save typescript @types/node @types/react @types/react-dom @types/jest",
     ]
 
     cmdline("\n".join(cmds))

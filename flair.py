@@ -3,13 +3,15 @@ import time
 from http.client import HTTPConnection
 from threading import Thread
 
-from app import run_app
 import webview
+
+from app import run_app
 
 logger = logging.getLogger(__name__)
 
 error = False
 status = False
+port = 43968
 
 
 def get_user_agent(window):
@@ -20,9 +22,11 @@ def get_user_agent(window):
     print(result)
 
 
-def is_server_running(url, port, max_wait):
+def is_server_running(url, max_wait):
     global error
     global status
+    global port
+
     time.sleep(0.4)
     start = time.time()
     while True:
@@ -42,14 +46,15 @@ def is_server_running(url, port, max_wait):
 
 
 def main():
-    url, port, max_wait = '127.0.0.1', 43968, 15  # 15 seconds
+    global port
+    url, max_wait = '127.0.0.1', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
     # Starting Server
     server_thread = Thread(target=run_app, args=(url, port))
     server_thread.daemon = True
     server_thread.start()
     # Waiting for server to load content
-    if is_server_running(url, port, max_wait):
+    if is_server_running(url, max_wait):
         logger.debug("Server started")
         # webbrowser.open(link, new=2)
         # while server_thread.is_alive():

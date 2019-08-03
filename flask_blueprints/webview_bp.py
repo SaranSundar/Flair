@@ -3,10 +3,10 @@ import webbrowser
 import webview
 from flask import Blueprint, jsonify
 
-webview_api = Blueprint('webview_api', __name__)
+webview_bp = Blueprint('webview', __name__)
 
 
-@webview_api.route("/choose-folder-path")
+@webview_bp.route("/choose-folder-path")
 def choose_folder_path():
     """
     Invoke a folder selection dialog here
@@ -25,13 +25,13 @@ def choose_folder_path():
     return jsonify(response)
 
 
-@webview_api.route("/fullscreen")
+@webview_bp.route("/fullscreen")
 def fullscreen():
     webview.toggle_fullscreen()
     return jsonify({})
 
 
-@webview_api.route("/open-url/<url>")
+@webview_bp.route("/open-url/<url>")
 def open_url(url):
     webbrowser.open_new_tab(url)
 

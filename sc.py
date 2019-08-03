@@ -10,7 +10,7 @@ def main():
         print(
             "Wrong amount of arguments. Should pass in <UserName> <RepoName> <path-to-component>"
             " <download-path> <token-if-repo-is-private>")
-        print("Ex. python sc.py SaranSundar TestGUI src/components/NoMatch token-here")
+        print("Ex. python sc.py SaranSundar TestGUI src/components/NoMatch src/components/NoMatch token-here")
         return
 
     url = f"https://api.github.com/repos/{sys.argv[1]}/{sys.argv[2]}/contents/{sys.argv[3]}"
