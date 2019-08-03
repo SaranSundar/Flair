@@ -1,23 +1,29 @@
 import os
+import platform
 import sys
 
 from flask import Flask, render_template
 from flask_cors import CORS
 from flask_sockets import Sockets
 
-from flair import port as flair_port
 from flask_blueprints.example_bp import example_bp
 from flask_blueprints.example_bp import example_ws
 from flask_blueprints.webview_bp import webview_bp
 
 if getattr(sys, 'frozen', False):
-    # Logic used for packaging app with py2app
-    cwd = os.getcwd()
-    app = Flask(__name__, static_folder=str(cwd) + "/static", template_folder=str(cwd) + "/templates")
-    # Logic used for packaging app with PyInstaller
-    # template_folder = os.path.join(sys._MEIPASS, 'templates')
-    # static_folder = os.path.join(sys._MEIPASS, 'static')
-    # app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    operating_system = str(platform.system()).lower()
+    if "window" in operating_system:
+        # Logic used for packaging app with PyInstaller
+        template_folder = os.path.join(sys._MEIPASS, 'templates')
+        static_folder = os.path.join(sys._MEIPASS, 'static')
+        app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
+    elif "darwin" in operating_system:
+        # Logic used for packaging app with py2app
+        cwd = os.getcwd()
+        app = Flask(__name__, static_folder=str(cwd) + "/static", template_folder=str(cwd) + "/templates")
+    else:
+        print("Operating system not supported, please try on Mac OS or Windows")
+        sys.exit(1)
 else:
     app = Flask(__name__, static_folder="static", template_folder="templates")
 
@@ -60,6 +66,7 @@ if __name__ == '__main__':
     """
         App can be launched from this file itself
         without needing to package or launch Window.
-        Can be useful for chrome tools debugging.
+        Can be useful for chrome tools debugging. Make sure port number
+        is the same as in flair.py
     """
-    run_app('127.0.0.1', flair_port)
+    run_app('127.0.0.1', port=43968)
