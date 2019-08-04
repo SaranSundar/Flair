@@ -4,7 +4,7 @@ import subprocess
 import sys
 from subprocess import Popen, PIPE, STDOUT
 
-from pathlib2 import Path
+from pathlib2 import Path, PureWindowsPath, PurePosixPath
 
 operating_system = str(platform.system()).lower()
 if "window" in operating_system:
@@ -59,7 +59,7 @@ def windows_cmdline(cmds):
     #
     # ]
     for i in range(len(cmds)):
-        cmds[i] = str(Path(cmds[i]))
+        cmds[i] = str(PurePosixPath(cmds[i]))
     cmds = " & ".join(cmds)
     subprocess.run(cmds, shell=True)
 
@@ -103,7 +103,8 @@ def create_project(path, python_name, react_name, app_name):
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
-        "cp -r " + cwd + "/* ./",
+        "cp -r " + cwd + "/* " + path + "/" + python_name,
+        "cd " + path + "/" + python_name,
         "rm -rf project-flair.py dist build",
         "rm -rf " + react_name + "/.git",
         "rm -rf " + react_name + "/.gitignore",
@@ -112,7 +113,11 @@ def create_project(path, python_name, react_name, app_name):
         "cp -r src " + react_name + "/src",
         "cd " + react_name,
         "npm install react-router-dom",
-        "npm install --save typescript @types/node @types/react @types/react-dom @types/jest",
+        "npm install --save typescript",
+        "npm install --save @types/node",
+        "npm install --save @types/react",
+        "npm install --save @types/react-dom",
+        "npm install --save @types/jest"
     ]
 
     cmdline("\n".join(cmds))
