@@ -9,9 +9,10 @@ from .js import css
 
 def _api_call(function, event_type):
     """
-    Decorator to call a pywebview API, checking for _webview_ready and raisings
+    Decorator to call a pywebview API, checking for _webview_ready and raising
     appropriate Exceptions on failure.
     """
+
     @wraps(function)
     def wrapper(*args, **kwargs):
         event = args[0].loaded if event_type == 'loaded' else args[0].shown
@@ -169,8 +170,8 @@ class Window:
     def create_file_dialog(self, dialog_type=10, directory='', allow_multiple=False, save_filename='', file_types=()):
         """
         Create a file dialog
-        :param dialog_type: Dialog type: open file (OPEN_DIALOG), save file (SAVE_DIALOG), open folder (OPEN_FOLDER). Default
-                            is open file.
+        :param dialog_type: Dialog type: open file (OPEN_DIALOG), save file (SAVE_DIALOG), open folder (OPEN_FOLDER).
+            Default is open file.
         :param directory: Initial directory
         :param allow_multiple: Allow multiple selection. Default is false.
         :param save_filename: Default filename for save file dialog.

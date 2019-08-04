@@ -1,8 +1,18 @@
 import os
+import platform
+import subprocess
 import sys
 from subprocess import Popen, PIPE, STDOUT
 
-HOME = os.environ['HOME']
+from pathlib2 import Path
+
+operating_system = str(platform.system()).lower()
+if "window" in operating_system:
+    HOME = os.environ['HOMEPATH']
+elif "darwin" in operating_system:
+    HOME = os.environ['HOME']
+else:
+    HOME = os.environ['HOME']
 
 
 def replace_all_paths(path):
@@ -14,13 +24,44 @@ def replace_all_paths(path):
 
 
 def cmdline(command):
-    cmd = command
-    p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-    p.wait()
-    output = ""
-    for line in p.stdout:
-        output += line.decode("utf-8")
-    print(output)
+    operating_system = str(platform.system()).lower()
+    if "window" in operating_system:
+        command = command.split("\n")
+        windows_cmdline(command)
+    elif "darwin" in operating_system:
+        cmd = command
+        p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        p.wait()
+        output = ""
+        for line in p.stdout:
+            output += line.decode("utf-8")
+        print(output)
+    else:
+        print("Operating system not supported, please use Mac OS or Windows")
+
+
+def windows_cmdline(cmds):
+    # cmds = [
+    #     str(Path('cd C:/Users/matth/Documents/Github/Flair2')),
+    #     'mkdir myApp',
+    #     'cd myApp',
+    #     'npx create-react-app react-ui',
+    #     'cp -r ' + str(Path('C:/Users/matth/Documents/Github/Flair2/Flair/* ./')),
+    #     'rm -rf project-flair.py dist build',
+    #     'rm -rf react-ui/.git',
+    #     'rm -rf react-ui/.gitignore',
+    #     'rm -rf react-ui/src',
+    #     'mv rt.py react-ui/rt.py',
+    #     'cp -r src react-ui/src',
+    #     'cd react-ui',
+    #     'npm install react-router-dom',
+    #     'npm install --save typescript @types/node @types/react @types/react-dom @types/jest'
+    #
+    # ]
+    for i in range(len(cmds)):
+        cmds[i] = Path(cmds[i])
+    cmds = " & ".join(cmds)
+    subprocess.run(cmds, shell=True)
 
 
 def create_executables(path, python_name, react_name, app_name):
