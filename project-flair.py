@@ -73,7 +73,7 @@ def create_project(path, python_name, react_name, app_name):
         "cd " + python_name,
         "npx create-react-app " + react_name,
         "cp -r " + cwd + "/* ./",
-        "rm -rf project-flair.py dist build static templates",
+        "rm -rf project-flair.py dist build",
         "rm -rf " + react_name + "/.git",
         "rm -rf " + react_name + "/.gitignore",
         "rm -rf " + react_name + "/src",
