@@ -1,8 +1,18 @@
 import os
+import platform
+import subprocess
 import sys
 from subprocess import Popen, PIPE, STDOUT
 
-HOME = os.environ['HOME']
+from pathlib2 import Path
+
+operating_system = str(platform.system()).lower()
+if "window" in operating_system:
+    HOME = os.environ['HOMEPATH']
+elif "darwin" in operating_system:
+    HOME = os.environ['HOME']
+else:
+    HOME = os.environ['HOME']
 
 
 def replace_all_paths(path):
@@ -14,13 +24,44 @@ def replace_all_paths(path):
 
 
 def cmdline(command):
-    cmd = command
-    p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-    p.wait()
-    output = ""
-    for line in p.stdout:
-        output += line.decode("utf-8")
-    print(output)
+    operating_system = str(platform.system()).lower()
+    if "window" in operating_system:
+        command = command.split("\n")
+        windows_cmdline(command)
+    elif "darwin" in operating_system:
+        cmd = command
+        p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        p.wait()
+        output = ""
+        for line in p.stdout:
+            output += line.decode("utf-8")
+        print(output)
+    else:
+        print("Operating system not supported, please use Mac OS or Windows")
+
+
+def windows_cmdline(cmds):
+    # cmds = [
+    #     str(Path('cd C:/Users/matth/Documents/Github/Flair2')),
+    #     'mkdir myApp',
+    #     'cd myApp',
+    #     'npx create-react-app react-ui',
+    #     'cp -r ' + str(Path('C:/Users/matth/Documents/Github/Flair2/Flair/* ./')),
+    #     'rm -rf project-flair.py dist build',
+    #     'rm -rf react-ui/.git',
+    #     'rm -rf react-ui/.gitignore',
+    #     'rm -rf react-ui/src',
+    #     'mv rt.py react-ui/rt.py',
+    #     'cp -r src react-ui/src',
+    #     'cd react-ui',
+    #     'npm install react-router-dom',
+    #     'npm install --save typescript @types/node @types/react @types/react-dom @types/jest'
+    #
+    # ]
+    for i in range(len(cmds)):
+        cmds[i] = str(Path(cmds[i]))
+    cmds = " & ".join(cmds)
+    subprocess.run(cmds, shell=True)
 
 
 def create_executables(path, python_name, react_name, app_name):
@@ -30,31 +71,23 @@ def create_executables(path, python_name, react_name, app_name):
         "npm run build",
         "cd ..",
         "echo 'Cleaning up old builds...'",
-        "rm -rf *.app",
-        "rm -rf " + app_name + "_exec",
+        "rm -rf build",
         "rm -rf dist",
         "rm -rf templates",
         "rm -rf static",
         "mkdir templates",
         "cp -r " + os.path.join(react_name, "build", "index.html") + " templates/index.html",
         "cp -r " + os.path.join(react_name, "build", "static") + " static",
-        "echo 'Starting pip environment...'",
-        'pipenv run python setup.py py2app',
-        "cp -r dist/*.app ./" + app_name + ".app",
+        "echo 'Building exe...'",
+        'pyinstaller -w -F -y --add-data "templates;templates" --add-data "static;static" flair.py',
         "rm *.spec",
-        "rm -rf build",
-        "rm -rf dist"
     ]
     sh_file = "\n".join(cmds)
     with open(os.path.join(path, python_name, "create_executables.sh"), mode='w') as f:
         f.write(sh_file)
-    print("Exectuable script written, installing pip dependencies")
+    print("Executable script written, installing pip dependencies")
     cmds = [
         "cd " + os.path.join(path, python_name),
-        "pipenv --three",
-        "pipenv install Flask",
-        "pipenv install pywebview",
-        "pipenv install py2app",
         "chmod +x create_executables.sh",
     ]
     cmdline("\n".join(cmds))
@@ -64,17 +97,22 @@ def create_project(path, python_name, react_name, app_name):
     path = replace_all_paths(path)
     react_name = react_name.lower()
     cwd = os.getcwd()
-    print("Creating Project Flair Skeleton...")
+    print("Creating Project Flair Skeleton. May take a couple of minutes...")
     cmds = [
         "cd " + path,
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
         "cp -r " + cwd + "/* ./",
-        "rm -rf project-flair.py dist build static templates",
-        "rm -rf " + os.path.join(react_name) + "/.git",
-        "rm -rf " + os.path.join(react_name) + "/.gitignore",
-        "mv /rt.py " + os.path.join(react_name) + "/rt.py",
+        "rm -rf project-flair.py dist build",
+        "rm -rf " + react_name + "/.git",
+        "rm -rf " + react_name + "/.gitignore",
+        "rm -rf " + react_name + "/src",
+        "mv rt.py " + react_name + "/rt.py",
+        "cp -r src " + react_name + "/src",
+        "cd " + react_name,
+        "npm install react-router-dom",
+        "npm install --save typescript @types/node @types/react @types/react-dom @types/jest",
     ]
 
     cmdline("\n".join(cmds))
@@ -90,7 +128,7 @@ def main():
     elif argl > 5:
         print("Too many arguments")
     path = sys.argv[1]  # "~/Documents/PythonProjects"
-    python_name = sys.argv[2]  # ~/Documents/PythonProjects
+    python_name = sys.argv[2]  # React+Flask
     if argl > 3:
         react_name = sys.argv[3]
     else:

@@ -4,7 +4,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 REQUIRES_PYTHON = '>=3.0.0'
-REQUIRED_DEP = ['flask']
+REQUIRED_DEP = ['flask',  'flask_sockets', 'flask_cors', 'pathlib2']
 about = {}
 
 NAME = 'Flair'
@@ -26,7 +26,7 @@ APP = ['flair.py']
 OPTIONS = {
     'argv_emulation': False,
     'strip': True,
-    'packages': ['flask', 'werkzeug', 'jinja2'],
+    'packages': ['flask', 'werkzeug', 'jinja2', 'gevent', 'geventwebsocket', 'flask_cors'],
     'includes': ['WebKit', 'Foundation', 'webview', 'sys', 'subprocess', 'os'],
     'resources': ['./templates', './static'],
 }
