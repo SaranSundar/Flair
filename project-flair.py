@@ -71,20 +71,16 @@ def create_executables(path, python_name, react_name, app_name):
         "npm run build",
         "cd ..",
         "echo 'Cleaning up old builds...'",
-        "rm -rf *.app",
-        "rm -rf " + app_name + "_exec",
+        "rm -rf build",
         "rm -rf dist",
         "rm -rf templates",
         "rm -rf static",
         "mkdir templates",
         "cp -r " + os.path.join(react_name, "build", "index.html") + " templates/index.html",
         "cp -r " + os.path.join(react_name, "build", "static") + " static",
-        "echo 'Starting pip environment...'",
-        'pipenv run python setup.py py2app',
-        "cp -r dist/*.app ./" + app_name + ".app",
+        "echo 'Building exe...'",
+        'pyinstaller -w -F -y --add-data "templates;templates" --add-data "static;static" flair.py',
         "rm *.spec",
-        "rm -rf build",
-        "rm -rf dist"
     ]
     sh_file = "\n".join(cmds)
     with open(os.path.join(path, python_name, "create_executables.sh"), mode='w') as f:
@@ -92,12 +88,6 @@ def create_executables(path, python_name, react_name, app_name):
     print("Executable script written, installing pip dependencies")
     cmds = [
         "cd " + os.path.join(path, python_name),
-        "pipenv --three",
-        "pipenv install Flask",
-        "pipenv install pywebview",
-        "pipenv install py2app",
-        "pipenv install Flask-Sockets",
-        "pipenv install Flask-Cors",
         "chmod +x create_executables.sh",
     ]
     cmdline("\n".join(cmds))
