@@ -6,7 +6,7 @@ import WebSocketWrapper from "../WebSocketWrapper/WebSocketWrapper";
 class WebSocketExample extends React.Component {
     constructor(props) {
         super(props);
-        this.SERVER_URL = "ws://localhost:43968/echo";
+        this.SERVER_URL = "ws://localhost:43968/example_ws/echo-example";
     }
 
     handleData = (data) => {

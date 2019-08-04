@@ -55,6 +55,8 @@ def create_executables(path, python_name, react_name, app_name):
         "pipenv install Flask",
         "pipenv install pywebview",
         "pipenv install py2app",
+        "pipenv install Flask-Sockets",
+        "pipenv install Flask-Cors",
         "chmod +x create_executables.sh",
     ]
     cmdline("\n".join(cmds))
@@ -64,7 +66,7 @@ def create_project(path, python_name, react_name, app_name):
     path = replace_all_paths(path)
     react_name = react_name.lower()
     cwd = os.getcwd()
-    print("Creating Project Flair Skeleton...")
+    print("Creating Project Flair Skeleton. May take a couple of minutes...")
     cmds = [
         "cd " + path,
         "mkdir " + python_name,
@@ -95,7 +97,7 @@ def main():
     elif argl > 5:
         print("Too many arguments")
     path = sys.argv[1]  # "~/Documents/PythonProjects"
-    python_name = sys.argv[2]  # ~/Documents/PythonProjects
+    python_name = sys.argv[2]  # React+Flask
     if argl > 3:
         react_name = sys.argv[3]
     else:
