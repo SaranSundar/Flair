@@ -59,7 +59,7 @@ def windows_cmdline(cmds):
     #
     # ]
     for i in range(len(cmds)):
-        cmds[i] = Path(cmds[i])
+        cmds[i] = str(Path(cmds[i]))
     cmds = " & ".join(cmds)
     subprocess.run(cmds, shell=True)
 
