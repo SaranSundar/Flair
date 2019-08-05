@@ -57,6 +57,7 @@ def main():
         # while server_thread.is_alive():
         #     time.sleep(0.1)
         window = webview.create_window("Flair App", link, min_size=(640, 480))
+        # If you want to inspect element just go to localhost url in browser
         webview.start(get_user_agent, window)
     else:
         print("Server failed to start with a max wait time of " + str(max_wait))

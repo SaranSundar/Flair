@@ -74,7 +74,9 @@ def kill_port(port):
 
 
 def run_app(url, port):
-    kill_port(port)
+    operating_system = str(platform.system()).lower()
+    if "window" not in operating_system:
+        kill_port(port)
     server = pywsgi.WSGIServer((url, port), app, handler_class=WebSocketHandler)
     server.serve_forever()
     # app.run(host=url, port=port, threaded=True)
