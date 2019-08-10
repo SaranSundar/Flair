@@ -43,7 +43,6 @@ def is_server_running(url, max_wait):
 
 def main():
     global port
-    global window
     url, max_wait = '127.0.0.1', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
     # Starting Server

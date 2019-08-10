@@ -14,8 +14,9 @@ from flask_blueprints.example_bp import example_bp
 from flask_blueprints.example_bp import example_ws
 from flask_blueprints.webview_bp import webview_bp
 
+operating_system = str(platform.system()).lower()
+
 if getattr(sys, 'frozen', False):
-    operating_system = str(platform.system()).lower()
     if "window" in operating_system:
         # Logic used for packaging app with PyInstaller
         template_folder = os.path.join(sys._MEIPASS, 'templates')
@@ -74,8 +75,7 @@ def kill_port(port):
 
 
 def run_app(url, port):
-    operating_system = str(platform.system()).lower()
-    if "window" not in operating_system:
+    if "darwin" in operating_system:
         kill_port(port)
     server = pywsgi.WSGIServer((url, port), app, handler_class=WebSocketHandler)
     server.serve_forever()
