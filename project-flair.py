@@ -65,7 +65,7 @@ def create_windows_executable(path, python_name, react_name, app_name):
         "cp -r " + react_name + "/build/index.html templates/index.html",
         "cp -r " + react_name + "/build/static static/",
         "echo 'Building exe...'",
-        'pyinstaller -w -F -y --add-data "templates;templates" --add-data "static;static" flair.py',
+        'pyinstaller -w -D -y --add-data "templates;templates" --add-data "static;static" flair.py',
         "rm -rf flair.spec",
     ]
     sh_file = "\n".join(cmds)
