@@ -66,6 +66,7 @@ def create_windows_executable(path, python_name, react_name, app_name):
         "cp -r " + react_name + "/build/static static/",
         "echo 'Building exe...'",
         'pyinstaller -w -F -y --add-data "templates;templates" --add-data "static;static" flair.py',
+        "rm -rf flair.spec",
     ]
     sh_file = "\n".join(cmds)
     with open(os.path.join(path, python_name, "create_executable.sh"), mode='w') as f:
