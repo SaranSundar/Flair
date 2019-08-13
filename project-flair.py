@@ -113,6 +113,7 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
+        "pipenv install pathlib2",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))
