@@ -4,7 +4,7 @@ import os
 
 here = os.path.abspath(os.path.dirname(__file__))
 REQUIRES_PYTHON = '>=3.0.0'
-REQUIRED_DEP = ['flask',  'flask_sockets', 'flask_cors', 'pathlib2']
+REQUIRED_DEP = ['flask',  'flask_sockets', 'flask_cors']
 about = {}
 
 NAME = 'Flair'

@@ -2,14 +2,15 @@ import os
 import platform
 import subprocess
 import sys
+from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
-
-from pathlib2 import PurePosixPath
 
 operating_system = str(platform.system()).lower()
 
 if "window" in operating_system:
-    if 'HOMEPATH' in os.environ:
+    if 'HOME' in os.environ:
+        HOME = os.environ['HOME']
+    elif 'HOMEPATH' in os.environ:
         HOME = os.environ['HOMEPATH']
     else:
         HOME = "./"
@@ -45,9 +46,21 @@ def cmdline(command):
 
 
 def windows_cmdline(cmds):
+    print("CMDS ARE:")
+    print(cmds)
     for i in range(len(cmds)):
-        cmds[i] = str(PurePosixPath(cmds[i]))
+        cmds[i] = str(Path(cmds[i]))
+        if 'cp -r' in cmds[i] and 'Flair\\*' in cmds[i]:
+            cmds[i] = cmds[i].split(" ")
+            cmds[i][2] = repr(cmds[i][2])
+            cmds[i][3] = repr(cmds[i][3])[1:-1]
+            cmds[i][2] = cmds[i][2][1:len(cmds[i][2]) - 4] + "/*"
+            cmds[i] = " ".join(cmds[i])
+
     cmds = " & ".join(cmds)
+    print("CMDS ARE:")
+    print(cmds)
+    # os.system(cmds)
     subprocess.run(cmds, shell=True)
 
 
@@ -113,7 +126,6 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
-        "pipenv install pathlib2",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))
@@ -124,20 +136,24 @@ def create_project(path, python_name, react_name, app_name):
     react_name = react_name.lower()
     cwd = os.getcwd()
     print("Creating Project Flair Skeleton. May take a couple of minutes...")
+    cwd = (str(Path(cwd)))
+    print("CWD:", cwd)
     cmds = [
         "cd " + path,
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
-        "cp -r " + cwd + "/* " + path + "/" + python_name,
+        "cp -r " + cwd + "/* " + path + "/" + python_name + "/",
         "rm -rf project-flair.py dist build",
         "rm -rf " + react_name + "/.git",
         "rm -rf " + react_name + "/.gitignore",
         "rm -rf " + react_name + "/src",
+        "rm -rf " + react_name + "/public/index.html",
         "mv rt.py " + react_name + "/rt.py",
+        "mv index.html " + react_name + "/public/index.html",
         "cp -r src " + react_name + "/src",
         "cd " + react_name,
-        "npm install react-router-dom",
+        "npm install --save react-router-dom",
         # "npm install --save typescript",
         # "npm install --save @types/node",
         # "npm install --save @types/react",
