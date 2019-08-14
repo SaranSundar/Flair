@@ -35,6 +35,7 @@ class WebSocketWrapper extends React.Component {
         };
 
         websocket.onmessage = (evt) => {
+            console.log(evt.data);
             this.props.onMessage(evt.data);
         };
 
