@@ -15,11 +15,11 @@ class WebSocketExample extends React.Component {
     };
 
     handleOpen = () => {
-        alert("Connected to Server");
+        console.log("Connected to Server");
     };
 
     handleClose = () => {
-        alert("Disconnected from Server");
+        console.log("Disconnected from Server");
     };
 
     sendMessage = (message) => {

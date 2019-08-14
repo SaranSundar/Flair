@@ -39,6 +39,7 @@ class WebSocketWrapper extends React.Component {
         };
 
         this.shouldReconnect = this.props.reconnect;
+
         websocket.onclose = () => {
             this.logging('Websocket disconnected');
             if (typeof this.props.onClose === 'function') this.props.onClose();
@@ -50,7 +51,14 @@ class WebSocketWrapper extends React.Component {
                     this.setupWebsocket();
                 }, time);
             }
-        }
+        };
+
+        websocket.onerror = (evt) => {
+            console.log("++++++++++++++++++");
+            console.log("ERROR WS: ", websocket.readyState);
+            console.log(this.props.url);
+            console.log("++++++++++++++++++");
+        };
     }
 
     componentDidMount() {
