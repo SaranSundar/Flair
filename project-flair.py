@@ -2,7 +2,7 @@ import os
 import platform
 import subprocess
 import sys
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from subprocess import Popen, PIPE, STDOUT
 
 operating_system = str(platform.system()).lower()
@@ -49,7 +49,7 @@ def windows_cmdline(cmds):
     print("CMDS ARE:")
     print(cmds)
     for i in range(len(cmds)):
-        cmds[i] = str(PurePosixPath(cmds[i]))
+        cmds[i] = str(Path(cmds[i]))
         if 'cp -r' in cmds[i] and 'Flair\\*' in cmds[i]:
             cmds[i] = cmds[i].split(" ")
             cmds[i][2] = repr(cmds[i][2])
@@ -58,6 +58,7 @@ def windows_cmdline(cmds):
             cmds[i] = " ".join(cmds[i])
 
     cmds = " & ".join(cmds)
+    cmds = cmds.replace("\\", "/")
     print("CMDS ARE:")
     print(cmds)
     # os.system(cmds)
