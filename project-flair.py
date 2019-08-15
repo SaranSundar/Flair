@@ -2,7 +2,7 @@ import os
 import platform
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from subprocess import Popen, PIPE, STDOUT
 
 operating_system = str(platform.system()).lower()
@@ -49,7 +49,7 @@ def windows_cmdline(cmds):
     print("CMDS ARE:")
     print(cmds)
     for i in range(len(cmds)):
-        cmds[i] = str(Path(cmds[i]))
+        cmds[i] = str(PurePosixPath(cmds[i]))
         if 'cp -r' in cmds[i] and 'Flair\\*' in cmds[i]:
             cmds[i] = cmds[i].split(" ")
             cmds[i][2] = repr(cmds[i][2])
@@ -143,7 +143,8 @@ def create_project(path, python_name, react_name, app_name):
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
-        "cp -r " + cwd + "/* " + path + "/" + python_name + "/",
+        "cp -r " + cwd + "/* " + path + "/" + python_name,
+        "cd " + path + "/" + python_name,
         "rm -rf project-flair.py dist build",
         "rm -rf " + react_name + "/.git",
         "rm -rf " + react_name + "/.gitignore",
