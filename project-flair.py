@@ -112,8 +112,7 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
         "pipenv install redis",
-        "pipenv shell",
-        "pip install pywebview",
+        "pipenv run pip install pywebview",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))
@@ -142,11 +141,11 @@ def create_project(path, python_name, react_name, app_name):
         "cp -r src " + react_name + "/src",
         "cd " + react_name,
         "npm install --save react-router-dom",
-        "npm install --save typescript",
-        "npm install --save @types/node",
-        "npm install --save @types/react",
-        "npm install --save @types/react-dom",
-        "npm install --save @types/jest"
+        # "npm install --save typescript",
+        # "npm install --save @types/node",
+        # "npm install --save @types/react",
+        # "npm install --save @types/react-dom",
+        # "npm install --save @types/jest"
     ]
 
     cmdline("\n".join(cmds))
