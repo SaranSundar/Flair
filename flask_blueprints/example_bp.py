@@ -3,6 +3,7 @@ import json
 from flask import Blueprint
 
 from flask_apis.example_api import long_method
+from store import redis_set, redis_get
 
 example_bp = Blueprint('example_bp', __name__)
 example_ws = Blueprint('example_ws', __name__)
@@ -17,7 +18,9 @@ def echo_example(socket):
             continue
         message = json.loads(message)
         print("Received", message)
+        redis_set("message", message)  # Saving message to database
         response = json.dumps(message, default=str)
+        retrieve_message = redis_get("message")  # Getting message from database, do something with this if you want
         socket.send(response)
         print("Sent", message)
 

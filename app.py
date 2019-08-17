@@ -1,6 +1,7 @@
 import os
 import platform
 import signal
+import subprocess
 import sys
 from subprocess import Popen, PIPE
 
@@ -13,6 +14,7 @@ from geventwebsocket.handler import WebSocketHandler
 from flask_blueprints.example_bp import example_bp
 from flask_blueprints.example_bp import example_ws
 from flask_blueprints.webview_bp import webview_bp
+
 
 operating_system = str(platform.system()).lower()
 
@@ -76,6 +78,8 @@ def kill_port(port):
 
 def run_app(url, port):
     if "darwin" in operating_system:
+        subprocess.call(["brew", "services", "stop", "redis"])
+        subprocess.call(["brew", "services", "start", "redis"])
         kill_port(port)
     server = pywsgi.WSGIServer((url, port), app, handler_class=WebSocketHandler)
     server.serve_forever()
