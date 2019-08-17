@@ -1,10 +1,11 @@
-from setuptools import setup
-from sys import platform as _platform
 import os
+from sys import platform as _platform
+
+from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 REQUIRES_PYTHON = '>=3.0.0'
-REQUIRED_DEP = ['flask',  'flask_sockets', 'flask_cors', 'redis']
+REQUIRED_DEP = ['flask', 'flask_sockets', 'flask_cors']
 about = {}
 
 NAME = 'Flair'
@@ -26,7 +27,7 @@ APP = ['flair.py']
 OPTIONS = {
     'argv_emulation': False,
     'strip': True,
-    'packages': ['flask', 'werkzeug', 'jinja2', 'gevent', 'geventwebsocket', 'flask_cors'],
+    'packages': ['flask', 'werkzeug', 'jinja2', 'gevent', 'geventwebsocket', 'flask_cors', 'redis'],
     'includes': ['WebKit', 'Foundation', 'webview', 'sys', 'subprocess', 'os'],
     'resources': ['./templates', './static'],
 }

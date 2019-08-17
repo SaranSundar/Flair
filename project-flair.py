@@ -32,15 +32,15 @@ def cmdline(command):
         command = command.split("\n")
         windows_cmdline(command)
     elif "darwin" in operating_system:
-        command = command.split("\n")
-        macos_cmdline(command)
-        # cmd = command
-        # p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-        # p.wait()
-        # output = ""
-        # for line in p.stdout:
-        #     output += line.decode("utf-8")
-        # print(output)
+        # command = command.split("\n")
+        # macos_cmdline(command)
+        cmd = command
+        p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+        p.wait()
+        output = ""
+        for line in p.stdout:
+            output += line.decode("utf-8")
+        print(output)
     else:
         print("Operating system not supported, please use Mac OS or Windows")
         sys.exit(1)
@@ -131,11 +131,11 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "cd " + os.path.join(path, python_name),
         "pipenv --three",
         "pipenv install Flask",
+        "pipenv install pywebview",
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
         "pipenv install redis",
-        "pipenv install pywebview",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))

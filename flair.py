@@ -1,3 +1,4 @@
+import platform
 import subprocess
 import time
 from http.client import HTTPConnection
@@ -9,6 +10,8 @@ from app import run_app
 error = False
 status = False
 port = 43968
+
+operating_system = str(platform.system()).lower()
 
 
 def get_user_agent(window):
@@ -45,8 +48,8 @@ def is_server_running(url, max_wait):
 def main():
     global port
 
-    subprocess.call(["brew", "services", "stop", "redis"])
-    subprocess.call(["brew", "services", "start", "redis"])
+    if "darwin" in operating_system:
+        subprocess.run("brew services stop redis && brew services start redis", shell=True)
 
     url, max_wait = 'localhost', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
