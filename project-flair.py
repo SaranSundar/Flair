@@ -58,6 +58,7 @@ def windows_cmdline(cmds):
             cmds[i] = " ".join(cmds[i])
 
     cmds = " & ".join(cmds)
+    cmds = cmds.replace("\\", "/")
     print("CMDS ARE:")
     print(cmds)
     # os.system(cmds)
@@ -143,7 +144,8 @@ def create_project(path, python_name, react_name, app_name):
         "mkdir " + python_name,
         "cd " + python_name,
         "npx create-react-app " + react_name,
-        "cp -r " + cwd + "/* " + path + "/" + python_name + "/",
+        "cp -r " + cwd + "/* " + path + "/" + python_name,
+        "cd " + path + "/" + python_name,
         "rm -rf project-flair.py dist build",
         "rm -rf " + react_name + "/.git",
         "rm -rf " + react_name + "/.gitignore",
