@@ -45,7 +45,8 @@ def is_server_running(url, max_wait):
 def main():
     global port
 
-    subprocess.run("brew services stop redis && brew services start redis")
+    subprocess.call(["brew", "services", "stop", "redis"])
+    subprocess.call(["brew", "services", "start", "redis"])
 
     url, max_wait = 'localhost', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
