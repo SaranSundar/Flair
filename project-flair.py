@@ -32,44 +32,21 @@ def cmdline(command):
         command = command.split("\n")
         windows_cmdline(command)
     elif "darwin" in operating_system:
-        # command = command.split("\n")
-        # macos_cmdline(command)
-        cmd = command
-        p = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
-        p.wait()
-        output = ""
-        for line in p.stdout:
-            output += line.decode("utf-8")
-        print(output)
+        command = command.split("\n")
+        macos_cmdline(command)
     else:
         print("Operating system not supported, please use Mac OS or Windows")
         sys.exit(1)
 
 
 def macos_cmdline(cmds):
-    print("CMDS ARE:")
     cmds = " && ".join(cmds)
-    print(cmds)
     subprocess.run(cmds, shell=True)
 
 
 def windows_cmdline(cmds):
-    print("CMDS ARE:")
-    print(cmds)
-    for i in range(len(cmds)):
-        cmds[i] = str(Path(cmds[i]))
-        if 'cp -r' in cmds[i] and '*' in cmds[i]:
-            cmds[i] = cmds[i].split(" ")
-            cmds[i][2] = repr(cmds[i][2])
-            cmds[i][3] = repr(cmds[i][3])[1:-1]
-            cmds[i][2] = cmds[i][2][1:len(cmds[i][2]) - 4] + "/*"
-            cmds[i] = " ".join(cmds[i])
-
     cmds = " & ".join(cmds)
     cmds = cmds.replace("\\", "/")
-    print("CMDS ARE:")
-    print(cmds)
-    # os.system(cmds)
     subprocess.run(cmds, shell=True)
 
 
@@ -131,11 +108,12 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "cd " + os.path.join(path, python_name),
         "pipenv --three",
         "pipenv install Flask",
-        "pipenv install pywebview",
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
         "pipenv install redis",
+        "pipenv shell",
+        "pip install pywebview",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))
@@ -147,7 +125,6 @@ def create_project(path, python_name, react_name, app_name):
     cwd = os.getcwd()
     print("Creating Project Flair Skeleton. May take a couple of minutes...")
     cwd = (str(Path(cwd)))
-    print("CWD:", cwd)
     cmds = [
         "cd " + path,
         "mkdir " + python_name,
