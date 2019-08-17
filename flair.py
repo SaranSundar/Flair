@@ -1,3 +1,4 @@
+import subprocess
 import time
 from http.client import HTTPConnection
 from threading import Thread
@@ -43,10 +44,13 @@ def is_server_running(url, max_wait):
 
 def main():
     global port
+
+    subprocess.run("brew services stop redis && brew services start redis")
+
     url, max_wait = 'localhost', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
     # Starting Server
-    server_thread = Thread(target=run_app, args=(url, port,))
+    server_thread = Thread(target=run_app, args=(url, port, False))
     server_thread.daemon = True
     server_thread.start()
     # Waiting for server to load content

@@ -15,7 +15,6 @@ from flask_blueprints.example_bp import example_bp
 from flask_blueprints.example_bp import example_ws
 from flask_blueprints.webview_bp import webview_bp
 
-
 operating_system = str(platform.system()).lower()
 
 if getattr(sys, 'frozen', False):
@@ -76,10 +75,10 @@ def kill_port(port):
         os.kill(int(data[1]), signal.SIGKILL)
 
 
-def run_app(url, port):
+def run_app(url, port, start_redis):
     if "darwin" in operating_system:
-        subprocess.call(["brew", "services", "stop", "redis"])
-        subprocess.call(["brew", "services", "start", "redis"])
+        if start_redis:
+            subprocess.run("brew services stop redis && brew services start redis")
         kill_port(port)
     server = pywsgi.WSGIServer((url, port), app, handler_class=WebSocketHandler)
     server.serve_forever()
@@ -93,4 +92,4 @@ if __name__ == '__main__':
         Can be useful for chrome tools debugging. Make sure port number
         is the same as in flair.py
     """
-    run_app('localhost', port=43968)
+    run_app('localhost', port=43968, start_redis=True)
