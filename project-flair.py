@@ -3,7 +3,6 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from subprocess import Popen, PIPE, STDOUT
 
 operating_system = str(platform.system()).lower()
 
@@ -33,16 +32,25 @@ def cmdline(command):
         command = command.split("\n")
         windows_cmdline(command)
     elif "darwin" in operating_system:
-        cmd = command
-        p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
-        p.wait()
-        output = ""
-        for line in p.stdout:
-            output += line.decode("utf-8")
-        print(output)
+        command = command.split("\n")
+        macos_cmdline(command)
+        # cmd = command
+        # p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        # p.wait()
+        # output = ""
+        # for line in p.stdout:
+        #     output += line.decode("utf-8")
+        # print(output)
     else:
         print("Operating system not supported, please use Mac OS or Windows")
         sys.exit(1)
+
+
+def macos_cmdline(cmds):
+    print("CMDS ARE:")
+    cmds = " && ".join(cmds)
+    print(cmds)
+    subprocess.run(cmds, shell=True)
 
 
 def windows_cmdline(cmds):
@@ -50,7 +58,7 @@ def windows_cmdline(cmds):
     print(cmds)
     for i in range(len(cmds)):
         cmds[i] = str(Path(cmds[i]))
-        if 'cp -r' in cmds[i] and 'Flair\\*' in cmds[i]:
+        if 'cp -r' in cmds[i] and '*' in cmds[i]:
             cmds[i] = cmds[i].split(" ")
             cmds[i][2] = repr(cmds[i][2])
             cmds[i][3] = repr(cmds[i][3])[1:-1]
@@ -123,10 +131,10 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "cd " + os.path.join(path, python_name),
         "pipenv --three",
         "pipenv install Flask",
-        "pipenv install pywebview",
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
+        "pipenv install redis",
         "chmod +x create_executable.sh",
     ]
     cmdline("\n".join(cmds))
@@ -156,11 +164,11 @@ def create_project(path, python_name, react_name, app_name):
         "cp -r src " + react_name + "/src",
         "cd " + react_name,
         "npm install --save react-router-dom",
-        # "npm install --save typescript",
-        # "npm install --save @types/node",
-        # "npm install --save @types/react",
-        # "npm install --save @types/react-dom",
-        # "npm install --save @types/jest"
+        "npm install --save typescript",
+        "npm install --save @types/node",
+        "npm install --save @types/react",
+        "npm install --save @types/react-dom",
+        "npm install --save @types/jest"
     ]
 
     cmdline("\n".join(cmds))
