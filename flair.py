@@ -7,6 +7,7 @@ from threading import Thread
 import webview
 from app import run_app
 
+
 error = False
 status = False
 port = 43968
