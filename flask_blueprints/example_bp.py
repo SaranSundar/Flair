@@ -18,9 +18,9 @@ def echo_example(socket):
             continue
         message = json.loads(message)
         print("Received", message)
-        redis_set("message", message)  # Saving message to database
+        # redis_set("message", message)  # Saving message to database
         response = json.dumps(message, default=str)
-        retrieve_message = redis_get("message")  # Getting message from database, do something with this if you want
+        # retrieve_message = redis_get("message")  # Getting message from database, do something with this if you want
         socket.send(response)
         print("Sent", message)
 

@@ -92,4 +92,4 @@ if __name__ == '__main__':
         Can be useful for chrome tools debugging. Make sure port number
         is the same as in flair.py
     """
-    run_app('localhost', port=43968, start_redis=True)
+    run_app('localhost', port=43968, start_redis=False)

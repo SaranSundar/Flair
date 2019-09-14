@@ -5,7 +5,7 @@ def long_method():
     for i in range(100):
         x = 5
         e = 3
-        r = 1
+        r = 2
         hello = "bye"
     for i in range(100):
         x = 5
