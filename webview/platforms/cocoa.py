@@ -47,10 +47,10 @@ try:
 except AttributeError:
     NSWindowTitleHidden = 1
 
-
 logger = logging.getLogger('pywebview')
 logger.debug('Using Cocoa')
 
+renderer = 'wkwebview'
 
 class BrowserView:
     instances = {}
@@ -60,6 +60,7 @@ class BrowserView:
     class WindowDelegate(AppKit.NSObject):
         def windowShouldClose_(self, window):
             i = BrowserView.get_instance('window', window)
+            i.closing.set()
 
             quit = localization['global.quit']
             cancel = localization['global.cancel']
@@ -78,6 +79,8 @@ class BrowserView:
             if i.pywebview_window in windows:
                 windows.remove(i.pywebview_window)
 
+            i.closed.set()
+
             if BrowserView.instances == {}:
                 BrowserView.app.stop_(self)
 
@@ -88,10 +91,10 @@ class BrowserView:
             return self
 
         def userContentController_didReceiveScriptMessage_(self, controller, message):
-            func_name, param = json.loads(message.body())
+            func_name, param, value_id = json.loads(message.body())
             if param is WebKit.WebUndefined.undefined():
                 param = None
-            js_bridge_call(self.window, func_name, param)
+            js_bridge_call(self.window, func_name, param, value_id)
 
     class BrowserDelegate(AppKit.NSObject):
         # Display a JavaScript alert panel containing the specified message
@@ -168,7 +171,7 @@ class BrowserView:
                     i.window.setContentView_(webview)
                     i.window.makeFirstResponder_(webview)
 
-                script = parse_api_js(i.js_bridge.window.js_api, 'cocoa')
+                script = parse_api_js(i.js_bridge.window, 'cocoa')
                 i.webkit.evaluateJavaScript_completionHandler_(script, lambda a,b: None)
 
                 if not i.text_select:
@@ -184,7 +187,6 @@ class BrowserView:
             if message.body() == 'print':
                 i = BrowserView.get_instance('_browserDelegate', self)
                 BrowserView.print_webview(i.webkit)
-
 
     class FileFilterChooser(AppKit.NSPopUpButton):
         def initWithFilter_(self, file_filter):
@@ -297,19 +299,25 @@ class BrowserView:
         self._file_name = None
         self._file_name_semaphore = Semaphore(0)
         self._current_url_semaphore = Semaphore(0)
+        self.closed = window.closed
+        self.closing = window.closing
         self.shown = window.shown
         self.loaded = window.loaded
         self.confirm_close = window.confirm_close
         self.title = window.title
         self.text_select = window.text_select
-
         self.is_fullscreen = False
+        self.hidden = window.hidden
+        self.minimized = window.minimized
 
-        rect = AppKit.NSMakeRect(0.0, 0.0, window.width, window.height)
+        rect = AppKit.NSMakeRect(0.0, 0.0, window.initial_width, window.initial_height)
         window_mask = AppKit.NSTitledWindowMask | AppKit.NSClosableWindowMask | AppKit.NSMiniaturizableWindowMask
 
         if window.resizable:
             window_mask = window_mask | AppKit.NSResizableWindowMask
+
+        if window.frameless:
+            window_mask = window_mask | NSFullSizeContentViewWindowMask | AppKit.NSTexturedBackgroundWindowMask
 
         # The allocated resources are retained because we would explicitly delete
         # this instance when its window is closed
@@ -321,7 +329,17 @@ class BrowserView:
         self.window.setAnimationBehavior_(AppKit.NSWindowAnimationBehaviorDocumentWindow)
         BrowserView.cascade_loc = self.window.cascadeTopLeftFromPoint_(BrowserView.cascade_loc)
 
+        frame = self.window.frame()
+        frame.size.width = window.initial_width
+        frame.size.height = window.initial_height
+        self.window.setFrame_display_(frame, True)
+
         self.webkit = BrowserView.WebKitHost.alloc().initWithFrame_(rect).retain()
+
+        if window.initial_x is not None and window.initial_y is not None:
+            self.move(window.initial_x, window.initial_y)
+        else:
+            self.window.center()
 
         self._browserDelegate = BrowserView.BrowserDelegate.alloc().init().retain()
         self._windowDelegate = BrowserView.WindowDelegate.alloc().init().retain()
@@ -333,8 +351,6 @@ class BrowserView:
 
         if window.frameless:
             # Make content full size and titlebar transparent
-            window_mask = window_mask | NSFullSizeContentViewWindowMask | AppKit.NSTexturedBackgroundWindowMask
-            self.window.setStyleMask_(window_mask)
             self.window.setTitlebarAppearsTransparent_(True)
             self.window.setTitleVisibility_(NSWindowTitleHidden)
 
@@ -358,11 +374,6 @@ class BrowserView:
         if _debug:
             config.preferences().setValue_forKey_(Foundation.YES, 'developerExtrasEnabled')
 
-        #config.preferences().setValue_forKey_(Foundation.YES, 'inlineMediaPlaybackRequiresPlaysInlineAttribute')
-        #config.preferences().setValue_forKey_(Foundation.YES, 'allowsInlineMediaPlayback')
-        #config.preferences().setValue_forKey_(Foundation.YES, 'mediaSourceEnabled')
-        #config.preferences().setValue_forKey_(Foundation.NO, 'invisibleMediaAutoplayNotPermitted')
-
         self.js_bridge = BrowserView.JSBridge.alloc().initWithObject_(window)
         config.userContentController().addScriptMessageHandler_name_(self.js_bridge, 'jsBridge')
 
@@ -379,8 +390,15 @@ class BrowserView:
 
         self.shown.set()
 
-    def show(self):
-        self.window.makeKeyAndOrderFront_(self.window)
+
+    def first_show(self):
+        if not self.hidden:
+            self.window.makeKeyAndOrderFront_(self.window)
+        else:
+            self.hidden = False
+
+        if self.minimized:
+            self.minimize()
 
         if not BrowserView.app.isRunning():
             # Add the default Cocoa application menu
@@ -389,6 +407,18 @@ class BrowserView:
 
             BrowserView.app.activateIgnoringOtherApps_(Foundation.YES)
             BrowserView.app.run()
+
+    def show(self):
+        def _show():
+            self.window.makeKeyAndOrderFront_(self.window)
+
+        AppHelper.callAfter(_show)
+
+    def hide(self):
+        def _hide():
+            self.window.orderOut_(self.window)
+
+        AppHelper.callAfter(_hide)
 
     def destroy(self):
         AppHelper.callAfter(self.window.close)
@@ -412,8 +442,8 @@ class BrowserView:
         AppHelper.callAfter(toggle)
         self.is_fullscreen = not self.is_fullscreen
 
-    def set_window_size(self, width, height):
-        def _set_window_size():
+    def resize(self, width, height):
+        def _resize():
             frame = self.window.frame()
 
             # Keep the top left of the window in the same place
@@ -425,7 +455,21 @@ class BrowserView:
 
             self.window.setFrame_display_(frame, True)
 
-        AppHelper.callAfter(_set_window_size)
+        AppHelper.callAfter(_resize)
+
+    def minimize(self):
+        self.window.miniaturize_(self)
+
+    def restore(self):
+        self.window.deminiaturize_(self)
+
+    def move(self, x, y):
+        screen_frame = AppKit.NSScreen.mainScreen().frame()
+        if screen_frame is None:
+            raise RuntimeError('Failed to obtain screen')
+
+        flipped_y = screen_frame.size.height - y
+        self.window.setFrameTopLeftPoint_(AppKit.NSPoint(x, flipped_y))
 
     def get_current_url(self):
         def get():
@@ -708,7 +752,7 @@ def create_window(window):
 
     def create():
         browser = BrowserView(window)
-        browser.show()
+        browser.first_show()
 
     if window.uid == 'master':
         create()
@@ -745,12 +789,32 @@ def destroy_window(uid):
     BrowserView.instances[uid].destroy()
 
 
+def hide(uid):
+    BrowserView.instances[uid].hide()
+
+
+def show(uid):
+    BrowserView.instances[uid].show()
+
+
 def toggle_fullscreen(uid):
     BrowserView.instances[uid].toggle_fullscreen()
 
 
-def set_window_size(width, height, uid):
-    BrowserView.instances[uid].set_window_size(width, height)
+def resize(width, height, uid):
+    BrowserView.instances[uid].resize(width, height)
+
+
+def minimize(uid):
+    BrowserView.instances[uid].minimize()
+
+
+def restore(uid):
+    BrowserView.instances[uid].restore()
+
+
+def move(x, y, uid):
+    AppHelper.callAfter(BrowserView.instances[uid].move, x, y)
 
 
 def get_current_url(uid):
@@ -759,3 +823,41 @@ def get_current_url(uid):
 
 def evaluate_js(script, uid):
     return BrowserView.instances[uid].evaluate_js(script)
+
+
+def get_position(uid):
+    def _position(coordinates):
+        screen_frame = AppKit.NSScreen.mainScreen().frame()
+
+        if screen_frame is None:
+            raise RuntimeError('Failed to obtain screen')
+
+        window = BrowserView.instances[uid].window
+        frame = window.frame()
+        coordinates[0] = int(frame.origin.x)
+        coordinates[1] = int(screen_frame.size.height - frame.origin.y - frame.size.height)
+        semaphore.release()
+
+    coordinates = [None, None]
+    semaphore = Semaphore(0)
+
+    AppHelper.callAfter(_position, coordinates)
+    semaphore.acquire()
+
+    return coordinates
+
+
+def get_size(uid):
+    def _size(dimensions):
+        size = BrowserView.instances[uid].window.frame().size
+        dimensions[0] = size.width
+        dimensions[1] = size.height
+        semaphore.release()
+
+    dimensions = [None, None]
+    semaphore = Semaphore(0)
+
+    AppHelper.callAfter(_size, dimensions)
+    semaphore.acquire()
+
+    return dimensions

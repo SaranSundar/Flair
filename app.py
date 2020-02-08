@@ -77,8 +77,6 @@ def kill_port(port):
 
 def run_app(url, port, start_redis):
     if "darwin" in operating_system:
-        if start_redis:
-            subprocess.run("brew services stop redis && brew services start redis", shell=True)
         kill_port(port)
     server = pywsgi.WSGIServer((url, port), app, handler_class=WebSocketHandler)
     server.serve_forever()

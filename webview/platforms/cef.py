@@ -10,6 +10,7 @@ from uuid import uuid1
 from threading import Event
 from cefpython3 import cefpython as cef
 from copy import copy
+from time import sleep
 
 from webview.js.css import disable_text_select
 from webview.js import dom
@@ -22,6 +23,39 @@ instances = {}
 
 logger = logging.getLogger(__name__)
 
+settings = {}
+
+
+def _set_dpi_mode(enabled):
+    """
+    """
+    try:
+        import _winreg as winreg  # Python 2
+    except ImportError:
+        import winreg  # Python 3
+
+    try:
+        dpi_support = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                    r'Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers',
+                                    0, winreg.KEY_ALL_ACCESS)
+    except WindowsError:
+        dpi_support = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER,
+                                         r'Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers',
+                                         0, winreg.KEY_ALL_ACCESS)
+
+    try:
+        subprocess_path = os.path.join(sys._MEIPASS, 'subprocess.exe')
+    except:
+        subprocess_path = os.path.join(os.path.dirname(cef.__file__), 'subprocess.exe')
+
+    if enabled:
+        winreg.SetValueEx(dpi_support, subprocess_path, 0, winreg.REG_SZ, '~HIGHDPIAWARE')
+    else:
+        winreg.DeleteValue(dpi_support, subprocess_path)
+
+    winreg.CloseKey(dpi_support)
+
+
 
 class JSBridge:
     def __init__(self, window, eval_events):
@@ -33,15 +67,16 @@ class JSBridge:
         self.results[uid] = json.loads(result) if result else None
         self.eval_events[uid].set()
 
-    def call(self, func_name, param):
-        js_bridge_call(self.window, func_name, param)
+    def call(self, func_name, param, value_id):
+        js_bridge_call(self.window, func_name, param, value_id)
 
+renderer = 'cef'
 
 class Browser:
     def __init__(self, window, handle, browser):
+        self.window = window
         self.handle = handle
         self.browser = browser
-        self.js_api = window.js_api
         self.text_select = window.text_select
         self.uid = window.uid
         self.loaded = window.loaded
@@ -56,13 +91,14 @@ class Browser:
             return
 
         self.browser.GetJavascriptBindings().Rebind()
-        self.browser.ExecuteJavascript(parse_api_js(self.js_api, 'cef'))
+        self.browser.ExecuteJavascript(parse_api_js(self.window, 'cef'))
 
         if not self.text_select:
             self.browser.ExecuteJavascript(disable_text_select)
 
         self.browser.ExecuteJavascript(dom.src)
 
+        sleep(0.1) # wait for window.pywebview to load
         self.initialized = True
         self.loaded.set()
 
@@ -156,7 +192,10 @@ def init(window):
     global _initialized
 
     if not _initialized:
-        settings = {
+        if sys.platform == 'win32':
+            _set_dpi_mode(True)
+
+        default_settings = {
             'multi_threaded_message_loop': True,
             'context_menu': {
                 'enabled': _debug
@@ -164,10 +203,10 @@ def init(window):
         }
 
         if not _debug:
-            settings['remote_debugging_port'] = -1
+            default_settings['remote_debugging_port'] = -1
 
         try: # set paths under Pyinstaller's one file mode
-            settings.update({
+            default_settings.update({
                 'resources_dir_path': sys._MEIPASS,
                 'locales_dir_path': os.path.join(sys._MEIPASS, 'locales'),
                 'browser_subprocess_path': os.path.join(sys._MEIPASS, 'subprocess.exe'),
@@ -175,8 +214,10 @@ def init(window):
         except Exception:
             pass
 
-        cef.Initialize(settings=settings)
+        all_settings = dict(default_settings, **settings)
+        cef.Initialize(settings=all_settings)
         cef.DpiAware.EnableHighDpiSupport()
+
         _initialized = True
 
 
@@ -254,6 +295,9 @@ def shutdown():
 
         if os.path.exists('error.log'):
             os.remove('error.log')
+
+        if sys.platform == 'win32':
+            _set_dpi_mode(False)
 
     except Exception as e:
         logger.debug(e, exc_info=True)

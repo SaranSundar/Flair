@@ -49,9 +49,6 @@ def is_server_running(url, max_wait):
 def main():
     global port
 
-    if "darwin" in operating_system:
-        subprocess.run("brew services stop redis && brew services start redis", shell=True)
-
     url, max_wait = 'localhost', 15  # 15 seconds
     link = "http://" + url + ":" + str(port)
     # Starting Server

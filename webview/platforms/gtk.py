@@ -38,6 +38,8 @@ from gi.repository import WebKit2 as webkit
 webkit_ver = webkit.get_major_version(), webkit.get_minor_version(), webkit.get_micro_version()
 old_webkit = webkit_ver[0] < 2 or webkit_ver[1] < 22
 
+renderer = 'gtkwebkit2'
+
 class BrowserView:
     instances = {}
 
@@ -46,10 +48,10 @@ class BrowserView:
             self.window = window
             self.uid = uuid1().hex[:8]
 
-        def call(self, func_name, param):
+        def call(self, func_name, param, value_id):
             if param == 'undefined':
                 param = None
-            return js_bridge_call(self.window, func_name, param)
+            return js_bridge_call(self.window, func_name, param, value_id)
 
     def __init__(self, window):
         BrowserView.instances[window.uid] = self
@@ -67,12 +69,19 @@ class BrowserView:
 
         if window.resizable:
             self.window.set_size_request(window.min_size[0], window.min_size[1])
-            self.window.resize(window.width, window.height)
+            self.window.resize(window.initial_width, window.initial_height)
         else:
-            self.window.set_size_request(window.width, window.height)
+            self.window.set_size_request(window.initial_width, window.initial_height)
+
+        if window.minimized:
+            self.window.iconify()
+
+        if window.initial_x is not None and window.initial_y is not None:
+            self.move(window.initial_x, window.initial_y)
+        else:
+            self.window.set_position(gtk.WindowPosition.CENTER)
 
         self.window.set_resizable(window.resizable)
-        self.window.set_position(gtk.WindowPosition.CENTER)
 
         # Set window background color
         style_provider = gtk.CssProvider()
@@ -140,10 +149,13 @@ class BrowserView:
         if self.pywebview_window in windows:
             windows.remove(self.pywebview_window)
 
+        self.pywebview_window.closed.set()
+
         if BrowserView.instances == {}:
             gtk.main_quit()
 
     def on_destroy(self, widget=None, *data):
+        self.pywebview_window.closing.set()
         dialog = gtk.MessageDialog(parent=self.window, flags=gtk.DialogFlags.MODAL & gtk.DialogFlags.DESTROY_WITH_PARENT,
                                           type=gtk.MessageType.QUESTION, buttons=gtk.ButtonsType.OK_CANCEL,
                                           message_format=localization['global.quitConfirmation'])
@@ -190,8 +202,9 @@ class BrowserView:
 
             elif js_data['type'] == 'invoke':  # invoke js api's function
                 func_name = js_data['function']
+                value_id = js_data['id']
                 param = js_data['param'] if 'param' in js_data else None
-                return_val = self.js_bridge.call(func_name, param)
+                return_val = self.js_bridge.call(func_name, param, value_id)
 
                 # Give back the return value to JS as a string
                 code = 'pywebview._bridge.return_val = "{0}";'.format(escape_string(str(return_val)))
@@ -226,7 +239,14 @@ class BrowserView:
         self.window.show_all()
 
         if gtk.main_level() == 0:
+            if self.pywebview_window.hidden:
+                self.window.hide()
             gtk.main()
+        else:
+            glib.idle_add(self.window.show_all)
+
+    def hide(self):
+        glib.idle_add(self.window.hide)
 
     def destroy(self):
         self.window.emit('delete-event', Gdk.Event())
@@ -242,8 +262,21 @@ class BrowserView:
 
         self.is_fullscreen = not self.is_fullscreen
 
-    def set_window_size(self, width, height):
+    def resize(self, width, height):
         self.window.resize(width, height)
+
+    def move(self, x, y):
+        self.window.move(x, y)
+
+    def minimize(self):
+        glib.idle_add(self.window.iconify)
+
+    def restore(self):
+        def _restore():
+            self.window.deiconify()
+            self.window.present()
+
+        glib.idle_add(_restore)
 
     def create_file_dialog(self, dialog_type, directory, allow_multiple, save_filename, file_types):
         if dialog_type == FOLDER_DIALOG:
@@ -346,20 +379,7 @@ class BrowserView:
 
     def _set_js_api(self):
         def create_bridge():
-            self.webview.run_javascript(parse_api_js(self.js_bridge.window.js_api, 'gtk'))
-
-            if self.js_bridge.window.js_api:
-                # Make the `call` method write the function name and param to the
-                # window title.
-                # The return value will be passed back to the `return_val` attribute
-                # of the bridge by the on_title_change handler.
-                code = """
-                window.pywebview._bridge.call = function(funcName, param) {{
-                    document.title = JSON.stringify({{"type": "invoke", "uid": "{0}", "function": funcName, "param": param}})
-                    return this.return_val;
-                }};""".format(self.js_bridge.uid)
-                self.webview.run_javascript(code)
-
+            self.webview.run_javascript(parse_api_js(self.js_bridge.window, 'gtk', uid=self.js_bridge.uid))
             self.loaded.set()
 
         glib.idle_add(create_bridge)
@@ -394,10 +414,32 @@ def toggle_fullscreen(uid):
     glib.idle_add(_toggle_fullscreen)
 
 
-def set_window_size(width, height, uid):
-    def _set_window_size():
-        BrowserView.instances[uid].set_window_size(width,height)
-    glib.idle_add(_set_window_size)
+def resize(width, height, uid):
+    def _resize():
+        BrowserView.instances[uid].resize(width,height)
+    glib.idle_add(_resize)
+
+
+def move(x, y, uid):
+    def _move():
+        BrowserView.instances[uid].move(x, y)
+    glib.idle_add(_move)
+
+
+def hide(uid):
+    BrowserView.instances[uid].hide()
+
+
+def show(uid):
+    BrowserView.instances[uid].show()
+
+
+def minimize(uid):
+    BrowserView.instances[uid].minimize()
+
+
+def restore(uid):
+    BrowserView.instances[uid].restore()
 
 
 def get_current_url(uid):
@@ -439,3 +481,11 @@ def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, fi
 
 def evaluate_js(script, uid):
     return BrowserView.instances[uid].evaluate_js(script)
+
+
+def get_position(uid):
+    return BrowserView.instances[uid].window.get_position()
+
+
+def get_size(uid):
+    return BrowserView.instances[uid].window.get_size()

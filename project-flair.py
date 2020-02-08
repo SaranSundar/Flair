@@ -64,8 +64,9 @@ def create_windows_executable(path, python_name, react_name, app_name):
         "cp -r " + react_name + "/build/index.html templates/index.html",
         "cp -r " + react_name + "/build/static static/",
         "echo 'Building exe...'",
-        'pyinstaller -w -D -y --add-data "templates;templates" --add-data "static;static" flair.py',
-        "rm -rf flair.spec",
+        'pyinstaller -w -F --add-data "templates;templates" --add-data "static;static" -y flair.py',
+        'echo "Flair.exe created. Navigate to dist/ and double click flair.exe or run ./flair.exe in git-bash to launch the application. May take a couple seconds to launch"',
+        "rm -rf *.spec",
     ]
     sh_file = "\n".join(cmds)
     with open(os.path.join(path, python_name, "create_executable.sh"), mode='w') as f:

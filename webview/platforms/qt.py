@@ -10,12 +10,12 @@ import platform
 import json
 import logging
 import webbrowser
+import socket
 from uuid import uuid1
 from copy import deepcopy
-from threading import Semaphore, Event
-from socket import socket
+from threading import Semaphore
 
-from webview import escape_string, _debug, OPEN_DIALOG, FOLDER_DIALOG, SAVE_DIALOG, windows
+from webview import _debug, OPEN_DIALOG, FOLDER_DIALOG, SAVE_DIALOG, windows
 from webview.localization import localization
 from webview.window import Window
 from webview.util import convert_string, default_html, parse_api_js, js_bridge_call
@@ -36,11 +36,13 @@ from PyQt5.QtGui import QColor
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView as QWebView, QWebEnginePage as QWebPage
     from PyQt5.QtWebChannel import QWebChannel
+    renderer = 'qtwebengine'
     is_webengine = True
 except ImportError:
     from PyQt5 import QtWebKitWidgets
     from PyQt5.QtWebKitWidgets import QWebView, QWebPage
     is_webengine = False
+    renderer = 'qtwebkit'
 
 
 class BrowserView(QMainWindow):
@@ -53,8 +55,13 @@ class BrowserView(QMainWindow):
     html_trigger = QtCore.pyqtSignal(str, str)
     dialog_trigger = QtCore.pyqtSignal(int, str, bool, str, str)
     destroy_trigger = QtCore.pyqtSignal()
+    hide_trigger = QtCore.pyqtSignal()
+    show_trigger = QtCore.pyqtSignal()
     fullscreen_trigger = QtCore.pyqtSignal()
     window_size_trigger = QtCore.pyqtSignal(int, int)
+    window_move_trigger = QtCore.pyqtSignal(int, int)
+    window_minimize_trigger = QtCore.pyqtSignal()
+    window_restore_trigger = QtCore.pyqtSignal()
     current_url_trigger = QtCore.pyqtSignal()
     evaluate_js_trigger = QtCore.pyqtSignal(str, str)
 
@@ -64,12 +71,12 @@ class BrowserView(QMainWindow):
         def __init__(self):
             super(BrowserView.JSBridge, self).__init__()
 
-        @QtCore.pyqtSlot(str, qtype, result=str)
-        def call(self, func_name, param):
+        @QtCore.pyqtSlot(str, qtype, str, result=str)
+        def call(self, func_name, param, value_id):
             func_name = BrowserView._convert_string(func_name)
             param = BrowserView._convert_string(param)
 
-            return js_bridge_call(self.window, func_name, param)
+            return js_bridge_call(self.window, func_name, param, value_id)
 
     class WebView(QWebView):
         def __init__(self, parent=None):
@@ -106,8 +113,8 @@ class BrowserView(QMainWindow):
             except KeyError:
                 title = 'Web Inspector - {}'.format(self.parent().title)
                 url = 'http://localhost:{}'.format(BrowserView.inspector_port)
-                window = Window('web_inspector', title, url, '', 700, 500, True,
-                                False, (300, 200), False, '#fff', None, False, False)
+                window = Window('web_inspector', title, url, '', 700, 500, None, None, True, False,
+                                (300, 200), False, False, False, False, '#fff', None, False)
 
                 inspector = BrowserView(window)
                 inspector.show()
@@ -143,9 +150,23 @@ class BrowserView(QMainWindow):
     class WebPage(QWebPage):
         def __init__(self, parent=None):
             super(BrowserView.WebPage, self).__init__(parent)
-            self.nav_handler = BrowserView.NavigationHandler(self) if is_webengine else None
+            if is_webengine:
+                self.featurePermissionRequested.connect(self.onFeaturePermissionRequested)
+                self.nav_handler = BrowserView.NavigationHandler(self)
+            else:
+                self.nav_handler = None
 
-        if not is_webengine:
+        if is_webengine:
+            def onFeaturePermissionRequested(self, url, feature):
+                if feature in (
+                    QWebPage.MediaAudioCapture,
+                    QWebPage.MediaVideoCapture,
+                    QWebPage.MediaAudioVideoCapture,
+                ):
+                    self.setFeaturePermission(url, feature, QWebPage.PermissionGrantedByUser)
+                else:
+                    self.setFeaturePermission(url, feature, QWebPage.PermissionDeniedByUser)
+        else:
             def acceptNavigationRequest(self, frame, request, type):
                 if frame is None:
                     webbrowser.open(request.url().toString(), 2, True)
@@ -178,7 +199,7 @@ class BrowserView(QMainWindow):
         self._current_url = None
         self._file_name = None
 
-        self.resize(window.width, window.height)
+        self.resize(window.initial_width, window.initial_height)
         self.title = window.title
         self.setWindowTitle(window.title)
 
@@ -190,7 +211,7 @@ class BrowserView(QMainWindow):
         self.setPalette(palette)
 
         if not window.resizable:
-            self.setFixedSize(window.width, window.height)
+            self.setFixedSize(window.initial_width, window.initial_height)
 
         self.setMinimumSize(window.min_size[0], window.min_size[1])
 
@@ -200,10 +221,14 @@ class BrowserView(QMainWindow):
 
         self.view = BrowserView.WebView(self)
 
+        if is_webengine:
+            os.environ['QTWEBENGINE_CHROMIUM_FLAGS'] = (
+                '--use-fake-ui-for-media-stream --enable-features=AutoplayIgnoreWebAudio')
+
         if _debug and is_webengine:
             # Initialise Remote debugging (need to be done only once)
             if not BrowserView.inspector_port:
-                BrowserView.inspector_port = BrowserView._get_free_port()
+                BrowserView.inspector_port = BrowserView._get_debug_port()
                 os.environ['QTWEBENGINE_REMOTE_DEBUGGING'] = BrowserView.inspector_port
         else:
             self.view.setContextMenuPolicy(QtCore.Qt.NoContextMenu)  # disable right click context menu
@@ -218,8 +243,13 @@ class BrowserView(QMainWindow):
         self.html_trigger.connect(self.on_load_html)
         self.dialog_trigger.connect(self.on_file_dialog)
         self.destroy_trigger.connect(self.on_destroy_window)
+        self.show_trigger.connect(self.on_show_window)
+        self.hide_trigger.connect(self.on_hide_window)
         self.fullscreen_trigger.connect(self.on_fullscreen)
         self.window_size_trigger.connect(self.on_window_size)
+        self.window_move_trigger.connect(self.on_window_move)
+        self.window_minimize_trigger.connect(self.on_window_minimize)
+        self.window_restore_trigger.connect(self.on_window_restore)
         self.current_url_trigger.connect(self.on_current_url)
         self.evaluate_js_trigger.connect(self.on_evaluate_js)
         self.set_title_trigger.connect(self.on_set_title)
@@ -238,10 +268,19 @@ class BrowserView(QMainWindow):
         else:
             self.view.setHtml(default_html, QtCore.QUrl(''))
 
-        self.move(QApplication.desktop().availableGeometry().center() - self.rect().center())
-        self.activateWindow()
-        self.raise_()
+        if window.initial_x is not None and window.initial_y is not None:
+            self.move(window.initial_x, window.initial_y)
+        else:
+            center = QApplication.desktop().availableGeometry().center() - self.rect().center()
+            self.move(center.x(), center.y())
+
+        if not window.minimized:
+            self.activateWindow()
+            self.raise_()
+
         self.shown.set()
+
+
 
     def on_set_title(self, title):
         self.setWindowTitle(title)
@@ -274,6 +313,7 @@ class BrowserView(QMainWindow):
         self.view.setHtml(content, QtCore.QUrl(base_uri))
 
     def closeEvent(self, event):
+        self.pywebview_window.closing.set()
         if self.confirm_close:
             reply = QMessageBox.question(self, self.title, localization['global.quitConfirmation'],
                                          QMessageBox.Yes, QMessageBox.No)
@@ -294,9 +334,17 @@ class BrowserView(QMainWindow):
         except KeyError:
             pass
 
+        self.pywebview_window.closed.set()
+
         if len(BrowserView.instances) == 0:
             self.hide()
             _app.exit()
+
+    def on_show_window(self):
+        self.show()
+
+    def on_hide_window(self):
+        self.hide()
 
     def on_destroy_window(self):
         self.close()
@@ -312,6 +360,17 @@ class BrowserView(QMainWindow):
     def on_window_size(self, width, height):
         self.setFixedSize(width, height)
 
+    def on_window_move(self, x, y):
+        self.move(x, y)
+
+    def on_window_minimize(self):
+        self.setWindowState(QtCore.Qt.WindowMinimized)
+
+    def on_window_restore(self):
+        self.setWindowState(QtCore.Qt.WindowNoState)
+        self.raise_()
+        self.activateWindow()
+
     def on_evaluate_js(self, script, uuid):
         def return_result(result):
             result = BrowserView._convert_string(result)
@@ -326,9 +385,8 @@ class BrowserView(QMainWindow):
             return_result(result)
         except AttributeError:
             self.view.page().runJavaScript(script, return_result)
-        except  Exception as e:
-            print(e)
-
+        except Exception as e:
+            logger.exception(e)
 
     def on_load_finished(self):
         self._set_js_api()
@@ -376,14 +434,29 @@ class BrowserView(QMainWindow):
         else:
             return file_names
 
+    def hide_(self):
+        self.hide_trigger.emit()
+
+    def show_(self):
+        self.show_trigger.emit()
+
     def destroy_(self):
         self.destroy_trigger.emit()
 
     def toggle_fullscreen(self):
         self.fullscreen_trigger.emit()
 
-    def set_window_size(self, width, height):
+    def resize_(self, width, height):
         self.window_size_trigger.emit(width, height)
+
+    def move_window(self, x, y):
+        self.window_move_trigger.emit(x, y)
+
+    def minimize(self):
+        self.window_minimize_trigger.emit()
+
+    def restore(self):
+        self.window_restore_trigger.emit()
 
     def evaluate_js(self, script):
         self.loaded.wait()
@@ -404,7 +477,7 @@ class BrowserView(QMainWindow):
             frame.addToJavaScriptWindowObject('external', self.js_bridge)
 
         code = 'qtwebengine' if is_webengine else 'qtwebkit'
-        script = parse_api_js(self.js_bridge.window.js_api, code)
+        script = parse_api_js(self.js_bridge.window, code)
 
         if is_webengine:
             qwebchannel_js = QtCore.QFile('://qtwebchannel/qwebchannel.js')
@@ -437,13 +510,28 @@ class BrowserView(QMainWindow):
         return convert_string(result)
 
     @staticmethod
-    # A simple function to obtain an unused localhost port from the os return it
-    def _get_free_port():
-        s = socket()
-        s.bind(('localhost', 0))
-        port = str(s.getsockname()[1])
-        s.close()
-        return port
+    def _get_debug_port():
+        """
+        Check if default debug port 8228 is available,
+        increment it by 1 until a port is available.
+        :return: port: str
+        """
+        port_available = False
+        port = 8228
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        while not port_available:
+            try:
+                sock.bind(('localhost', port))
+                port_available = True
+            except:
+                port_available = False
+                logger.warning('Port %s is in use' % port)
+                port += 1
+            finally:
+                sock.close()
+
+        return str(port)
 
     @staticmethod
     # Receive func from subthread and execute it on the main thread
@@ -457,7 +545,14 @@ def create_window(window):
 
     def _create():
         browser = BrowserView(window)
-        browser.show()
+
+        if window.minimized:
+            # showMinimized does not work on start without showNormal first
+            # looks like a bug in QT
+            browser.showNormal()
+            browser.showMinimized()
+        elif not window.hidden:
+            browser.show()
 
     if window.uid == 'master':
         _create()
@@ -487,12 +582,32 @@ def destroy_window(uid):
     BrowserView.instances[uid].destroy_()
 
 
+def hide(uid):
+    BrowserView.instances[uid].hide_()
+
+
+def show(uid):
+    BrowserView.instances[uid].show_()
+
+
+def minimize(uid):
+    BrowserView.instances[uid].minimize()
+
+
+def restore(uid):
+    BrowserView.instances[uid].restore()
+
+
 def toggle_fullscreen(uid):
     BrowserView.instances[uid].toggle_fullscreen()
 
 
-def set_window_size(width, height, uid):
-    BrowserView.instances[uid].set_window_size(width, height)
+def resize(width, height, uid):
+    BrowserView.instances[uid].resize_(width, height)
+
+
+def move(x, y, uid):
+    BrowserView.instances[uid].move_window(x, y)
 
 
 def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, file_types, uid):
@@ -506,3 +621,13 @@ def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, fi
 
 def evaluate_js(script, uid):
     return BrowserView.instances[uid].evaluate_js(script)
+
+
+def get_position(uid):
+    position = BrowserView.instances[uid].pos()
+    return position.x(), position.y()
+
+
+def get_size(uid):
+    window = BrowserView.instances[uid]
+    return window.width(), window.height()

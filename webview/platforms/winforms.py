@@ -11,12 +11,16 @@ import os
 import sys
 import logging
 import json
+import shutil
+import tempfile
 import webbrowser
 from threading import Event, Semaphore
 from ctypes import windll
 from uuid import uuid4
 
 from webview import WebViewException, windows, OPEN_DIALOG, FOLDER_DIALOG, SAVE_DIALOG, _debug
+from webview.guilib import forced_gui_
+from webview.http_server import start_server
 from webview.util import parse_api_js, interop_dll_path, parse_file_type, inject_base_uri, default_html, js_bridge_call
 from webview.js import alert
 from webview.js.css import disable_text_select
@@ -35,16 +39,6 @@ from System.Drawing import Size, Point, Icon, Color, ColorTranslator, SizeF
 
 
 logger = logging.getLogger('pywebview')
-
-
-is_cef = False
-CEF = None
-
-def use_cef():
-    global CEF, is_cef
-    from . import cef as CEF
-    is_cef = True
-    logger.debug('Using WinForms / CEF')
 
 
 def _is_edge():
@@ -68,22 +62,31 @@ def _is_edge():
     finally:
         winreg.CloseKey(net_key)
 
-force_mshtml = str(os.environ.get('PYWEBVIEW_GUI')).lower() == 'mshtml'
-is_edge = _is_edge() and not force_mshtml
+
+is_cef = forced_gui_ == 'cef'
+is_edge = _is_edge() and forced_gui_ != 'mshtml'
 
 
-# TODO: Move this out of Edge initialization code
-clr.AddReference(interop_dll_path('WebBrowserInterop.dll'))
-from WebBrowserInterop import IWebBrowserInterop, WebBrowserEx
+if is_cef:
+    from . import cef as CEF
+    IWebBrowserInterop = object
 
-if is_edge:
+    logger.debug('Using WinForms / CEF')
+    renderer = 'cef'
+elif is_edge:
     clr.AddReference(interop_dll_path('Microsoft.Toolkit.Forms.UI.Controls.WebView.dll'))
     from Microsoft.Toolkit.Forms.UI.Controls import WebView
     from System.ComponentModel import ISupportInitialize
-    logger.debug('Using WinForms / EdgeHTML')
-else:
-    logger.debug('Using WinForms / MSHTML')
+    IWebBrowserInterop = object
 
+    logger.debug('Using WinForms / EdgeHTML')
+    renderer = 'edgehtml'
+else:
+    clr.AddReference(interop_dll_path('WebBrowserInterop.dll'))
+    from WebBrowserInterop import IWebBrowserInterop, WebBrowserEx
+
+    logger.debug('Using WinForms / MSHTML')
+    renderer = 'mshtml'
 
 
 class BrowserView:
@@ -94,11 +97,14 @@ class BrowserView:
             __namespace__ = 'BrowserView.MSHTML.JSBridge'
             window = None
 
-            def call(self, func_name, param):
-                return js_bridge_call(self.window, func_name, param)
+            def call(self, func_name, param, value_id):
+                return js_bridge_call(self.window, func_name, param, value_id)
 
             def alert(self, message):
                 BrowserView.alert(message)
+
+            def console(self, message):
+                print(message)
 
         def __init__(self, form, window):
             self.pywebview_window = window
@@ -184,10 +190,11 @@ class BrowserView:
                 self.cancel_back = False
 
         def on_document_completed(self, sender, args):
-            self.web_browser.Document.InvokeScript('eval', (alert.src,))
+            document = self.web_browser.Document
+            document.InvokeScript('eval', (alert.src,))
 
-            #if _debug:
-            #    self.web_browser.Document.InvokeScript('eval', ('window.console = { log: function(msg) { window.external.console(JSON.stringify(msg)) }}'))
+            if _debug:
+                document.InvokeScript('eval', ('window.console = { log: function(msg) { window.external.console(JSON.stringify(msg)) }}',))
 
             if self.first_load:
                 self.web_browser.Visible = True
@@ -195,12 +202,10 @@ class BrowserView:
 
             self.url = None if args.Url.AbsoluteUri == 'about:blank' else str(args.Url.AbsoluteUri)
 
-            document = self.web_browser.Document
-            document.InvokeScript('eval', (parse_api_js(self.pywebview_window.js_api, 'mshtml'),))
+            document.InvokeScript('eval', (parse_api_js(self.pywebview_window, 'mshtml'),))
 
             if not self.pywebview_window.text_select:
                 document.InvokeScript('eval', (disable_text_select,))
-
             self.pywebview_window.loaded.set()
 
             if self.frameless:
@@ -236,8 +241,10 @@ class BrowserView:
             # This must be before loading URL. Otherwise the webview will remain empty
             life.EndInit()
 
-            self.temp_html = None
+            self.httpd = None # HTTP server for load_html
+            self.tmpdir = None
             self.url = None
+            self.ishtml = False
 
             _allow_localhost()
 
@@ -262,40 +269,40 @@ class BrowserView:
             return self.url
 
         def load_html(self, html, base_uri):
-            file_name = '%s.html' % uuid4().hex
-            self.temp_html = os.path.join(WinForms.Application.StartupPath, file_name)
+            self.tmpdir = tempfile.mkdtemp()
+            self.temp_html = os.path.join(self.tmpdir, 'index.html')
 
-            with open(self.temp_html, 'w') as f:
+            with open(self.temp_html, 'w', encoding='utf-8') as f:
                 f.write(inject_base_uri(html, base_uri))
 
-            self.web_view.NavigateToLocal(file_name)
+            if self.httpd:
+                self.httpd.shutdown()
+
+            url, httpd = start_server('file://' + self.temp_html)
+            self.ishtml = True
+            self.web_view.Navigate(url)
 
         def load_url(self, url):
-            self.temp_html = None
+            self.ishtml = False
 
             # WebViewControl as of 5.1.1 crashes on file:// urls. Stupid workaround to make it work
             if url.startswith('file://'):
-                path = url.replace('file://', '')
+                url = start_server(self.url)
 
-                if not os.path.exists(path):
-                    raise WebViewException('File %s does not exist' % path)
-
-                with open(path) as f:
-                    html = f.read()
-                    self.load_html(html, 'file://' + os.path.dirname(path) + '\\')
-
-            else:
-                self.web_view.Navigate(url)
+            self.web_view.Navigate(url)
 
         def on_script_notify(self, _, args):
-            func_name, func_param = json.loads(args.Value)
+            try:
+                func_name, func_param, value_id = json.loads(args.Value)
 
-            if func_name == 'alert':
-                WinForms.MessageBox.Show(func_param)
-            elif func_name == 'console':
-                print(func_param)
-            else:
-                js_bridge_call(self.pywebview_window, func_name, func_param)
+                if func_name == 'alert':
+                    WinForms.MessageBox.Show(func_param)
+                elif func_name == 'console':
+                    print(func_param)
+                else:
+                    js_bridge_call(self.pywebview_window, func_name, func_param, value_id)
+            except Exception as e:
+                logger.exception('Exception occured during on_script_notify')
 
         def on_new_window_request(self, _, args):
             webbrowser.open(str(args.get_Uri()))
@@ -303,20 +310,20 @@ class BrowserView:
 
         def on_navigation_completed(self, _, args):
             try:
-                if self.temp_html and os.path.exists(self.temp_html):
-                    os.remove(self.temp_html)
-                    self.temp_html = None
+                if self.tmpdir and os.path.exists(self.tmpdir):
+                    shutil.rmtree(self.tmpdir)
+                    self.tmpdir = None
             except Exception as e:
-                logger.exception('Failed deleting %s' % self.temp_html)
+                logger.exception('Failed deleting %s' % self.tmpdir)
 
             url = str(args.Uri)
-            self.url = None if url.startswith('ms-local-stream:') else url
-            self.web_view.InvokeScript('eval', ('window.alert = (msg) => window.external.notify(JSON.stringify(["alert", msg+""]))',))
+            self.url = None if self.ishtml else url
+            self.web_view.InvokeScript('eval', ('window.alert = (msg) => window.external.notify(JSON.stringify(["alert", msg+"", ""]))',))
 
             if _debug:
-                self.web_view.InvokeScript('eval', ('window.console = { log: (msg) => window.external.notify(JSON.stringify(["console", msg+""]))}',))
+                self.web_view.InvokeScript('eval', ('window.console = { log: (msg) => window.external.notify(JSON.stringify(["console", msg+"", ""]))}',))
 
-            self.web_view.InvokeScript('eval', (parse_api_js(self.pywebview_window.js_api, 'edgehtml'),))
+            self.web_view.InvokeScript('eval', (parse_api_js(self.pywebview_window, 'edgehtml'),))
 
             if not self.pywebview_window.text_select:
                 self.web_view.InvokeScript('eval', (disable_text_select,))
@@ -329,9 +336,14 @@ class BrowserView:
             self.pywebview_window = window
             self.real_url = None
             self.Text = window.title
-            self.ClientSize = Size(window.width, window.height)
+            self.Size = Size(window.initial_width, window.initial_height)
             self.MinimumSize = Size(window.min_size[0], window.min_size[1])
             self.BackColor = ColorTranslator.FromHtml(window.background_color)
+
+            if window.initial_x is not None and window.initial_y is not None:
+                self.move(window.initial_x, window.initial_y)
+            else:
+                self.StartPosition = WinForms.FormStartPosition.CenterScreen
 
             self.AutoScaleDimensions = SizeF(96.0, 96.0)
             self.AutoScaleMode = WinForms.AutoScaleMode.Dpi
@@ -339,6 +351,9 @@ class BrowserView:
             if not window.resizable:
                 self.FormBorderStyle = WinForms.FormBorderStyle.FixedSingle
                 self.MaximizeBox = False
+
+            if window.minimized:
+                self.WindowState = WinForms.FormWindowState.Minimized
 
             # Application icon
             handle = windll.kernel32.GetModuleHandleW(None)
@@ -349,6 +364,8 @@ class BrowserView:
 
             windll.user32.DestroyIcon(icon_handle)
 
+            self.closed = window.closed
+            self.closing = window.closing
             self.shown = window.shown
             self.loaded = window.loaded
             self.url = window.url
@@ -369,15 +386,13 @@ class BrowserView:
             else:
                 self.browser = BrowserView.MSHTML(self, window)
 
-
             self.Shown += self.on_shown
             self.FormClosed += self.on_close
+            self.FormClosing += self.on_closing
 
             if is_cef:
                 self.Resize += self.on_resize
 
-            if window.confirm_close:
-                self.FormClosing += self.on_closing
 
         def on_shown(self, sender, args):
             if not is_cef:
@@ -398,15 +413,20 @@ class BrowserView:
             if self.pywebview_window in windows:
                 windows.remove(self.pywebview_window)
 
+            self.closed.set()
+
             if len(BrowserView.instances) == 0:
                 self.Invoke(Func[Type](_shutdown))
 
         def on_closing(self, sender, args):
-            result = WinForms.MessageBox.Show(localization['global.quitConfirmation'], self.Text,
-                                              WinForms.MessageBoxButtons.OKCancel, WinForms.MessageBoxIcon.Asterisk)
+            self.closing.set()
 
-            if result == WinForms.DialogResult.Cancel:
-                args.Cancel = True
+            if self.pywebview_window.confirm_close:
+                result = WinForms.MessageBox.Show(localization['global.quitConfirmation'], self.Text,
+                                                WinForms.MessageBoxButtons.OKCancel, WinForms.MessageBoxIcon.Asterisk)
+
+                if result == WinForms.DialogResult.Cancel:
+                    args.Cancel = True
 
         def on_resize(self, sender, args):
             CEF.resize(self.Width, self.Height, self.uid)
@@ -435,6 +455,12 @@ class BrowserView:
 
         def get_current_url(self):
             return self.browser.get_current_url
+
+        def hide(self):
+            self.Invoke(Func[Type](self.Hide))
+
+        def show(self):
+            self.Invoke(Func[Type](self.Show))
 
         def toggle_fullscreen(self):
             def _toggle():
@@ -465,9 +491,30 @@ class BrowserView:
             else:
                 _toggle()
 
-        def set_window_size(self, width, height):
+        def resize(self, width, height):
             windll.user32.SetWindowPos(self.Handle.ToInt32(), None, self.Location.X, self.Location.Y,
                 width, height, 64)
+
+        def move(self, x, y):
+            SWP_NOSIZE = 0x0001  # Retains the current size
+            SWP_NOZORDER = 0x0004  # Retains the current Z order
+            SWP_SHOWWINDOW = 0x0040  # Displays the window
+            windll.user32.SetWindowPos(self.Handle.ToInt32(), None, x, y, None, None,
+                                       SWP_NOSIZE|SWP_NOZORDER|SWP_SHOWWINDOW)
+
+        def minimize(self):
+            def _minimize():
+                self.WindowState = WinForms.FormWindowState.Minimized
+
+            self.Invoke(Func[Type](_minimize))
+
+        def restore(self):
+            def _restore():
+                self.WindowState = WinForms.FormWindowState.Normal
+
+            self.Invoke(Func[Type](_restore))
+
+
 
     @staticmethod
     def alert(message):
@@ -577,7 +624,9 @@ def create_window(window):
     def create():
         browser = BrowserView.BrowserForm(window)
         BrowserView.instances[window.uid] = browser
-        browser.Show()
+
+        if not window.hidden:
+            browser.Show()
 
         _main_window_created.set()
 
@@ -630,7 +679,7 @@ def create_file_dialog(dialog_type, directory, allow_multiple, save_filename, fi
         if dialog_type == FOLDER_DIALOG:
             dialog = WinForms.FolderBrowserDialog()
             dialog.RestoreDirectory = True
-            
+
             if directory:
                 dialog.SelectedPath = directory
 
@@ -703,14 +752,39 @@ def load_html(content, base_uri, uid):
         BrowserView.instances[uid].load_html(content, base_uri)
 
 
+def show(uid):
+    window = BrowserView.instances[uid]
+    window.show()
+
+
+def hide(uid):
+    window = BrowserView.instances[uid]
+    window.hide()
+
+
 def toggle_fullscreen(uid):
     window = BrowserView.instances[uid]
     window.toggle_fullscreen()
 
 
-def set_window_size(width, height, uid):
+def resize(width, height, uid):
     window = BrowserView.instances[uid]
-    window.set_window_size(width, height)
+    window.resize(width, height)
+
+
+def move(x, y, uid):
+    window = BrowserView.instances[uid]
+    window.move(x, y)
+
+
+def minimize(uid):
+    window = BrowserView.instances[uid]
+    window.minimize()
+
+
+def restore(uid):
+    window = BrowserView.instances[uid]
+    window.restore()
 
 
 def destroy_window(uid):
@@ -730,3 +804,11 @@ def evaluate_js(script, uid):
     else:
         return BrowserView.instances[uid].evaluate_js(script)
 
+
+def get_position(uid):
+    return BrowserView.instances[uid].Top, BrowserView.instances[uid].Left
+
+
+def get_size(uid):
+    size = BrowserView.instances[uid].Size
+    return size.Width, size.Height
