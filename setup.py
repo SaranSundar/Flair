@@ -28,7 +28,7 @@ APP = ['flair.py']
 OPTIONS = {
     'argv_emulation': False,
     'strip': True,
-    'packages': ['flask', 'werkzeug', 'jinja2', 'gevent', 'geventwebsocket', 'flask_cors', 'redis'],
+    'packages': ['flask', 'werkzeug', 'jinja2', 'gevent', 'geventwebsocket', 'flask_cors'],
     'includes': ['WebKit', 'Foundation', 'webview', 'sys', 'subprocess', 'os'],
     'resources': ['./templates', './static'],
 }
