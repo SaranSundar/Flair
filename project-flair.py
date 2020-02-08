@@ -112,6 +112,7 @@ def create_darwin_executables(path, python_name, react_name, app_name):
         "pipenv install py2app",
         "pipenv install Flask-Sockets",
         "pipenv install Flask-Cors",
+        "pipenv run pip install pywebview[qt] pyqtwebengine",
         "pipenv run pip install pywebview",
         "chmod +x create_executable.sh",
     ]

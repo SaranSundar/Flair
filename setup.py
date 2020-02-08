@@ -1,12 +1,14 @@
 import os
 from sys import platform as _platform
 
-
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 REQUIRES_PYTHON = '>=3.0.0'
-REQUIRED_DEP = ['flask', 'flask_sockets', 'flask_cors']
+REQUIRED_DEP = ['flask', 'flask_sockets', 'flask_cors',
+                'pythonnet ; sys_platform == "win32"',
+                'pyobjc ; sys_platform == "darwin"',
+                'PyQt5 ; sys_platform == "openbsd6"', ]
 about = {}
 
 NAME = 'Flair'
@@ -33,6 +35,12 @@ OPTIONS = {
     'resources': ['./templates', './static'],
 }
 
+extras_require = {
+    'qt': ['PyQt5', 'pyqtwebengine'],
+    'cef': ['cefpython3'],
+    'gtk': ['PyGObject'],
+}
+
 setup(
     app=APP,
     name=NAME,
@@ -48,6 +56,7 @@ setup(
     install_requires=REQUIRED_DEP,
     license="MIT license",
     zip_safe=False,
+    extras_require=extras_require,
     keywords='Flair - Cross Platform Desktop Apps, JavaScript, ReactJS, Python, HTML, CSS',
     classifiers=[
         'Intended Audience :: Developers',
